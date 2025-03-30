@@ -12,15 +12,22 @@ To add it to [Claude Desktop](https://claude.ai/download), change the `claude_de
 
 ```json
 {
-  "mcpServers": {
-    "currentTime": {
-      "command": "D:\\McpExperiments\\MyMCPServer\\bin\\Debug\\net9.0\\MyMCPServer.exe"
+    "mcpServers": {
+        "getTime": {
+            "command": "D:\\McpExperiments\\MyMCPServer.Stdio\\bin\\Debug\\net9.0\\MyMCPServer.Stdio.exe"
+        },
+        "getVibe": {
+            "command": "npx",
+            "args": [
+                "mcp-remote@0.0.9",
+                "http://localhost:5253/sse"
+            ]
+        }
     }
-  }
 }
 ```
 
-Claude Desktop seems to not yet support SSE transport.
+Claude Desktop seems to not yet natively support SSE transport.
 
 ## Resources
 
