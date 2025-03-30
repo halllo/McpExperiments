@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyMCPClient", "MyMCPClient\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModelContextProtocol", "..\mcp-csharp-sdk\src\ModelContextProtocol\ModelContextProtocol.csproj", "{643BD8CA-831E-5482-A1D6-680635AC7E7F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyMCPServer.Sse", "MyMCPServer.Sse\MyMCPServer.Sse.csproj", "{3AF9BE70-2BE2-4C1A-9FED-360B1C24468E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,8 +29,15 @@ Global
 		{643BD8CA-831E-5482-A1D6-680635AC7E7F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{643BD8CA-831E-5482-A1D6-680635AC7E7F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{643BD8CA-831E-5482-A1D6-680635AC7E7F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3AF9BE70-2BE2-4C1A-9FED-360B1C24468E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3AF9BE70-2BE2-4C1A-9FED-360B1C24468E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3AF9BE70-2BE2-4C1A-9FED-360B1C24468E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3AF9BE70-2BE2-4C1A-9FED-360B1C24468E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {85E13CAD-EAAB-49E4-A54E-8D871D427D52}
 	EndGlobalSection
 EndGlobal
