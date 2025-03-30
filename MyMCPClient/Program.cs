@@ -20,13 +20,24 @@ var config = new McpServerConfig
 	TransportType = TransportTypes.StdIo,
 	TransportOptions = new Dictionary<string, string>
 	{
-		["command"] = @"..\..\..\..\MyMCPServer\bin\Debug\net9.0\MyMCPServer.exe"
+		["command"] = @"..\..\..\..\MyMCPServer.Stdio\bin\Debug\net9.0\MyMCPServer.Stdio.exe"
 	}
 };
 
 using var factory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace));
-
 await using var mcpClient = await McpClientFactory.CreateAsync(config, options);
+
+Console.WriteLine("MCP Tools available:");
+var mcpTools = await mcpClient.ListToolsAsync();
+foreach (var tool in mcpTools)
+{
+	Console.WriteLine($"  {tool}");
+}
+Console.WriteLine();
+
+
+
+
 
 var chatClient = new OpenAIChatClient(new OpenAI.OpenAIClient(new ApiKeyCredential("my_key"), new OpenAI.OpenAIClientOptions()
 {
@@ -44,7 +55,8 @@ IList<ChatMessage> messages =
 	new(ChatRole.User, message)
 ];
 
-var mcpTools = await mcpClient.GetAIFunctionsAsync();
+
+
 var response = await client.GetResponseAsync(messages, new ChatOptions { Tools = [.. mcpTools] });
 
 Console.WriteLine(response);

@@ -15,4 +15,8 @@
     <ProjectReference Include="..\..\mcp-csharp-sdk\src\ModelContextProtocol\ModelContextProtocol.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Properties\" />
+  </ItemGroup>
+
 </Project>
