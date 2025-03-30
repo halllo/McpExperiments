@@ -4,11 +4,19 @@ using System.ComponentModel;
 namespace MyMCPServer.Sse
 {
 	[McpServerToolType]
-	public static class VibeTool
+	public class VibeTool
 	{
-		[McpServerTool, Description("Gets the vibe in the provided location.")]
-		public static string GetVibe(string location)
+		private readonly ILogger<VibeTool> logger;
+
+		public VibeTool(ILogger<VibeTool> logger)
 		{
+			this.logger = logger;
+		}
+
+		[McpServerTool, Description("Gets the vibe in the provided location.")]
+		public string GetVibe(string location)
+		{
+			this.logger.LogInformation("Getting vibe in {location}.", location);
 			return $"Curious vibes in {location}.";
 		}
 	}
