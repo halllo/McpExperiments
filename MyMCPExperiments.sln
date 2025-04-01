@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModelContextProtocol", "..\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyMCPServer.Sse", "MyMCPServer.Sse\MyMCPServer.Sse.csproj", "{3AF9BE70-2BE2-4C1A-9FED-360B1C24468E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModelContextProtocol.AspNetCore", "..\mcp-csharp-sdk\src\ModelContextProtocol.AspNetCore\ModelContextProtocol.AspNetCore.csproj", "{95BA3F4F-9178-047B-A685-EDF2C0B7CA63}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{3AF9BE70-2BE2-4C1A-9FED-360B1C24468E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3AF9BE70-2BE2-4C1A-9FED-360B1C24468E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3AF9BE70-2BE2-4C1A-9FED-360B1C24468E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95BA3F4F-9178-047B-A685-EDF2C0B7CA63}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95BA3F4F-9178-047B-A685-EDF2C0B7CA63}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95BA3F4F-9178-047B-A685-EDF2C0B7CA63}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95BA3F4F-9178-047B-A685-EDF2C0B7CA63}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

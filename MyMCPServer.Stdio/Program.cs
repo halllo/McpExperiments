@@ -1,7 +1,7 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
-using ModelContextProtocol;
 
 var builder = Host.CreateEmptyApplicationBuilder(settings: null);
 builder.Services
