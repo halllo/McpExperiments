@@ -39,6 +39,8 @@ Microsoft [plans to implement all specified authentication protocols described i
 
 In this repository I am attempting to build an OAuth server middleware for MCP servers.
 
+OAuth server build based on <https://youtu.be/EBVKlm0wyTE>.
+
 todo
 
 ## Resources

@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.IdentityModel.JsonWebTokens;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,10 +16,10 @@ builder.Services.AddAuthentication(config =>
 	})
 	.AddOAuth("oauth", options =>
 	{
-		options.AuthorizationEndpoint = "https://localhost:5001/connect/authorize";
-		options.TokenEndpoint = "https://localhost:5001/connect/token";
 		options.ClientId = "mcp_server";
 		options.ClientSecret = "secret";
+		options.AuthorizationEndpoint = "https://localhost:7148/oauth/authorize";
+		options.TokenEndpoint = "https://localhost:7148/oauth/token";
 		options.CallbackPath = "/oauth/callback";
 		options.UsePkce = true;
 		options.Scope.Add("openid");
@@ -25,11 +27,11 @@ builder.Services.AddAuthentication(config =>
 		options.Scope.Add("notes");
 		options.Scope.Add("admin");
 		options.SaveTokens = true;
-		options.Events.OnRedirectToAuthorizationEndpoint = async ctx =>
+		options.Events.OnCreatingTicket = async ctx =>
 		{
-			ctx.Response.StatusCode = 401;
-			ctx.Response.Headers["Location"] = ctx.RedirectUri;
-			await ctx.Response.CompleteAsync();
+			var handler = new JsonWebTokenHandler();
+			var token = handler.ReadJsonWebToken(ctx.AccessToken);
+			ctx.Principal!.AddIdentity(new ClaimsIdentity(token.Claims, "oauth"));
 		};
 	});
 builder.Services.AddAuthorization();
@@ -45,28 +47,14 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 
-app.MapGet("/weatherforecast", () =>
+app.MapGet("/claims", (HttpContext ctx) =>
 {
-	var summaries = new[]
+	return Results.Ok(new
 	{
-		"Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-	};
-	var forecast = Enumerable.Range(1, 5).Select(index =>
-		new WeatherForecast
-		(
-			DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-			Random.Shared.Next(-20, 55),
-			summaries[Random.Shared.Next(summaries.Length)]
-		))
-		.ToArray();
-	return forecast;
+		claims = ctx.User.Claims.Select(c => new { c.Type, c.Value })
+	});
 })
-.WithName("GetWeatherForecast")
-.RequireAuthorization(); ;
+.WithName("GetClaims")
+.RequireAuthorization();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-	public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
