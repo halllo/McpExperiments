@@ -13,6 +13,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyMCPServer.Sse", "MyMCPSer
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModelContextProtocol.AspNetCore", "..\mcp-csharp-sdk\src\ModelContextProtocol.AspNetCore\ModelContextProtocol.AspNetCore.csproj", "{95BA3F4F-9178-047B-A685-EDF2C0B7CA63}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAuthServer", "OAuthServer\OAuthServer.csproj", "{B47AD67C-404B-4370-BEFD-D453D847B750}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAuthClient.Web", "OAuthClient.Web\OAuthClient.Web.csproj", "{9ABCB22B-80C0-41E7-95BD-9C6A8B3191A6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAuthClient.Desktop", "OAuthClient.Desktop\OAuthClient.Desktop.csproj", "{2F195D51-8F92-4EED-A728-9C19EB8E36CF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +45,18 @@ Global
 		{95BA3F4F-9178-047B-A685-EDF2C0B7CA63}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{95BA3F4F-9178-047B-A685-EDF2C0B7CA63}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{95BA3F4F-9178-047B-A685-EDF2C0B7CA63}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B47AD67C-404B-4370-BEFD-D453D847B750}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B47AD67C-404B-4370-BEFD-D453D847B750}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B47AD67C-404B-4370-BEFD-D453D847B750}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B47AD67C-404B-4370-BEFD-D453D847B750}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9ABCB22B-80C0-41E7-95BD-9C6A8B3191A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9ABCB22B-80C0-41E7-95BD-9C6A8B3191A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9ABCB22B-80C0-41E7-95BD-9C6A8B3191A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9ABCB22B-80C0-41E7-95BD-9C6A8B3191A6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2F195D51-8F92-4EED-A728-9C19EB8E36CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F195D51-8F92-4EED-A728-9C19EB8E36CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F195D51-8F92-4EED-A728-9C19EB8E36CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F195D51-8F92-4EED-A728-9C19EB8E36CF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
