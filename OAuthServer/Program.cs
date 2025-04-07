@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
@@ -33,8 +35,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 		o.Scope.Add("verification");
 		o.Scope.Add("notes");
 		o.Scope.Add("admin");
-		o.SaveTokens = true;
 		o.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+		o.SaveTokens = true;
 		o.Events.OnTicketReceived = async ctx =>
 		{
 			// Add the access token claims to the cookie
@@ -46,7 +48,20 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 			// Remove the access token from the cookie
 			ctx.Properties?.GetTokens().ToList().ForEach(token => ctx.Properties.UpdateTokenValue(token.Name, string.Empty));
 		};
+	})
+	.AddJwtBearer(options =>
+	{
+		options.TokenValidationParameters = new TokenValidationParameters
+		{
+			ValidateIssuer = false,
+			ValidateAudience = true,
+			ValidateLifetime = true,
+			ValidateIssuerSigningKey = true,
+			ValidAudience = "mcp_server",
+		};
 	});
+
+builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, JwtSigningKeyConfiguration>();
 
 builder.Services.AddAuthorization(options =>
 {
@@ -62,16 +77,16 @@ builder.Services.AddAuthorization(options =>
 		policy.AuthenticationSchemes = [ExternalLoginScheme];
 		policy.RequireAuthenticatedUser();
 	});
+	options.AddPolicy(JwtBearerDefaults.AuthenticationScheme, policy =>
+	{
+		policy.AuthenticationSchemes = [JwtBearerDefaults.AuthenticationScheme];
+		policy.RequireAuthenticatedUser();
+	});
 });
 
 builder.Services.AddSingleton<SigningKey>();
 
-var oauthClientConfig = new
-{
-	ClientId = "mcp_server",
-	ClientSecret = "secret",
-	Scope = "openid profile notes admin",
-};
+
 
 
 
@@ -86,6 +101,13 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+
+var oauthClientConfig = new
+{
+	ClientId = "mcp_client",
+	ClientSecret = "secret",
+	Scope = "openid profile notes admin",
+};
 
 app.MapGet("/login", async (string returnUrl, HttpContext ctx, HttpResponse response) =>
 {
@@ -132,10 +154,19 @@ app.MapGet("/oauth/authorize", (HttpRequest request, IDataProtectionProvider dat
 	request.Query.TryGetValue("code_challenge", out var codeChallenge);
 	request.Query.TryGetValue("code_challenge_method", out var codeChallengeMethod);
 	request.Query.TryGetValue("redirect_uri", out var redirectUri);
-	if (!request.Query.TryGetValue("scope", out var scope) || scope != oauthClientConfig.Scope)
+
+	if (!request.Query.TryGetValue("scope", out var scope))
 	{
 		return Results.BadRequest(new { error = "invalid_scope", state, iss, });
 	}
+
+	var userScopes = request.HttpContext.User.Claims
+		.Where(c => c.Type == "scope")
+		.Select(c => c.Value)
+		.ToList();
+	var requestScopes = scope.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries)
+		.Where(userScopes.Contains)
+		.ToArray();
 
 	var protector = dataProtectionProvider.CreateProtector("oauth");
 	var authCode = new AuthCode
@@ -143,6 +174,7 @@ app.MapGet("/oauth/authorize", (HttpRequest request, IDataProtectionProvider dat
 		UserId = request.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)!,
 		UserName = request.HttpContext.User.FindFirstValue("name"),
 		ClientId = clientId!,
+		Scopes = requestScopes,
 		RedirectUri = redirectUri!,
 		CodeChallenge = codeChallenge!,
 		CodeChallengeMethod = codeChallengeMethod!,
@@ -156,6 +188,7 @@ app.MapPost("/oauth/token", async (HttpRequest request, SigningKey signingKey, I
 {
 	var bodyBytes = await request.BodyReader.ReadAsync();
 	var bodyContent = Encoding.UTF8.GetString(bodyBytes.Buffer);
+	request.BodyReader.AdvanceTo(bodyBytes.Buffer.End);
 
 	string grantType = "", code = "", redirectUri = "", codeVerifier = "", clientId = "", clientSecret = "";
 	foreach (var part in bodyContent.Split('&'))
@@ -217,11 +250,12 @@ app.MapPost("/oauth/token", async (HttpRequest request, SigningKey signingKey, I
 	{
 		access_token = handler.CreateToken(new SecurityTokenDescriptor
 		{
-			Claims = new Dictionary<string, object>
-			{
-				{ JwtRegisteredClaimNames.Sub, authCode.UserId },
-				{ JwtRegisteredClaimNames.Name, authCode.UserName ?? string.Empty }
-			},
+			Subject = new ClaimsIdentity([
+				new Claim(ClaimTypes.NameIdentifier, authCode.UserId),
+				new Claim(ClaimTypes.Name, authCode.UserName ?? string.Empty),
+				..authCode.Scopes.Select(s => new Claim("scope", s)),
+			]),
+			Audience = "mcp_server",
 			Expires = DateTime.UtcNow.AddMinutes(5),
 			TokenType = "Bearer",
 			SigningCredentials = new SigningCredentials(signingKey.RsaSecurityKey, SecurityAlgorithms.RsaSha256),
@@ -229,6 +263,11 @@ app.MapPost("/oauth/token", async (HttpRequest request, SigningKey signingKey, I
 		token_type = "Bearer",
 	});
 });
+
+app.MapGet("/session", async (HttpContext ctx) =>
+{
+	return Results.Ok(new { claims = ctx.User.Claims.Select(c => new { c.Type, c.Value }) });
+}).RequireAuthorization(JwtBearerDefaults.AuthenticationScheme);
 
 app.Run();
 
@@ -254,11 +293,27 @@ class SigningKey
 	public RsaSecurityKey RsaSecurityKey { get; }
 }
 
+class JwtSigningKeyConfiguration : IPostConfigureOptions<JwtBearerOptions>
+{
+	private readonly SigningKey signingKey;
+
+	public JwtSigningKeyConfiguration(SigningKey signingKey)
+	{
+		this.signingKey = signingKey;
+	}
+
+	public void PostConfigure(string? name, JwtBearerOptions options)
+	{
+		options.TokenValidationParameters.IssuerSigningKey = signingKey.RsaSecurityKey;
+	}
+}
+
 class AuthCode
 {
 	public string UserId { get; set; } = null!;
 	public string? UserName { get; set; }
 	public string ClientId { get; set; } = null!;
+	public string[] Scopes { get; set; } = null!;
 	public string RedirectUri { get; set; } = null!;
 	public string CodeChallenge { get; set; } = null!;
 	public string CodeChallengeMethod { get; set; } = null!;

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.IdentityModel.JsonWebTokens;
 using System.Security.Claims;
@@ -13,10 +14,11 @@ builder.Services.AddAuthentication(config =>
 })
 	.AddCookie(options =>
 	{
+		options.Cookie.Name = "OAuthClient.Session";
 	})
 	.AddOAuth("oauth", options =>
 	{
-		options.ClientId = "mcp_server";
+		options.ClientId = "mcp_client";
 		options.ClientSecret = "secret";
 		options.AuthorizationEndpoint = "https://localhost:7148/oauth/authorize";
 		options.TokenEndpoint = "https://localhost:7148/oauth/token";
@@ -47,12 +49,32 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 
-app.MapGet("/claims", (HttpContext ctx) =>
+app.MapGet("/claims", async (HttpContext ctx) =>
 {
-	return Results.Ok(new
+
+	var result = await ctx.AuthenticateAsync();
+	if (result.Succeeded && result.Properties != null)
 	{
-		claims = ctx.User.Claims.Select(c => new { c.Type, c.Value })
-	});
+		var accessToken = result.Properties.GetTokenValue("access_token");
+		using HttpClient client = new();
+		client.BaseAddress = new Uri("https://localhost:7148");
+		client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+		using var response = await client.GetAsync("/session");
+		response.EnsureSuccessStatusCode();
+
+		return Results.Ok(new
+		{
+			client_claims = ctx.User.Claims.Select(c => new { c.Type, c.Value }),
+			server_claims = await response.Content.ReadAsStringAsync(),
+		});
+	}
+	else
+	{
+		return Results.Ok(new
+		{
+			client_claims = ctx.User.Claims.Select(c => new { c.Type, c.Value })
+		});
+	}
 })
 .WithName("GetClaims")
 .RequireAuthorization();
