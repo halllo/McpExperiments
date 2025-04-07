@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -18,11 +17,15 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 
 const string ExternalLoginScheme = nameof(ExternalLoginScheme);
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(config =>
+{
+	config.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+	config.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+	config.DefaultChallengeScheme = ExternalLoginScheme;
+})
 	.AddCookie(options =>
 	{
 		options.Cookie.Name = "OAuthServer.Session";
-		options.LoginPath = "/login";
 	})
 	.AddOpenIdConnect(ExternalLoginScheme, o =>
 	{
@@ -35,7 +38,6 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 		o.Scope.Add("verification");
 		o.Scope.Add("notes");
 		o.Scope.Add("admin");
-		o.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 		o.SaveTokens = true;
 		o.Events.OnTicketReceived = async ctx =>
 		{
@@ -65,18 +67,6 @@ builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, JwtSignin
 
 builder.Services.AddAuthorization(options =>
 {
-	{//default
-		var defaultPolicy = new AuthorizationPolicyBuilder();
-		defaultPolicy.AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme);
-		defaultPolicy.RequireAuthenticatedUser();
-		options.DefaultPolicy = defaultPolicy.Build();
-		options.AddPolicy("", defaultPolicy.Build());
-	}
-	options.AddPolicy(ExternalLoginScheme, policy =>
-	{
-		policy.AuthenticationSchemes = [ExternalLoginScheme];
-		policy.RequireAuthenticatedUser();
-	});
 	options.AddPolicy(JwtBearerDefaults.AuthenticationScheme, policy =>
 	{
 		policy.AuthenticationSchemes = [JwtBearerDefaults.AuthenticationScheme];
@@ -108,33 +98,6 @@ var oauthClientConfig = new
 	ClientSecret = "secret",
 	Scope = "openid profile notes admin",
 };
-
-app.MapGet("/login", async (string returnUrl, HttpContext ctx, HttpResponse response) =>
-{
-	var props = new AuthenticationProperties
-	{
-		RedirectUri = "login/callback",
-		Items =
-		{
-			{ "return_url", returnUrl }
-		}
-	};
-	return Results.Challenge(props, [ExternalLoginScheme]);
-});
-
-app.MapGet("/login/callback", async (HttpContext ctx) =>
-{
-	var result = await ctx.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-	if (result.Succeeded && result.Properties != null)
-	{
-		var returnUrl = result.Properties.Items["return_url"]!;
-		return Results.Redirect(returnUrl);
-	}
-	else
-	{
-		return Results.BadRequest(new { error = "invalid_request", error_description = "Invalid login" });
-	}
-}).RequireAuthorization(ExternalLoginScheme);
 
 app.MapGet("/oauth/authorize", (HttpRequest request, IDataProtectionProvider dataProtectionProvider) =>
 {
