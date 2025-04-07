@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -12,17 +14,64 @@ using System.Web;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+
+const string ExternalLoginScheme = nameof(ExternalLoginScheme);
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
 	.AddCookie(options =>
 	{
 		options.Cookie.Name = "OAuthServer.Session";
 		options.LoginPath = "/login";
+	})
+	.AddOpenIdConnect(ExternalLoginScheme, o =>
+	{
+		o.Authority = "https://localhost:5001";
+		o.ClientId = "mcp_server";
+		o.ClientSecret = "secret";
+		o.ResponseType = OpenIdConnectResponseType.Code;
+		o.Scope.Add("openid");
+		o.Scope.Add("profile");
+		o.Scope.Add("verification");
+		o.Scope.Add("notes");
+		o.Scope.Add("admin");
+		o.SaveTokens = true;
+		o.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+		o.Events.OnTicketReceived = async ctx =>
+		{
+			// Add the access token claims to the cookie
+			var accesstoken = ctx.Properties?.GetTokenValue("access_token");
+			var handler = new JsonWebTokenHandler();
+			var token = handler.ReadJsonWebToken(accesstoken);
+			ctx.Principal!.AddIdentity(new ClaimsIdentity(token.Claims, ExternalLoginScheme));
+
+			// Remove the access token from the cookie
+			ctx.Properties?.GetTokens().ToList().ForEach(token => ctx.Properties.UpdateTokenValue(token.Name, string.Empty));
+		};
 	});
-builder.Services.AddAuthorization();
-builder.Services.AddSingleton<DevKeys>();
 
+builder.Services.AddAuthorization(options =>
+{
+	{//default
+		var defaultPolicy = new AuthorizationPolicyBuilder();
+		defaultPolicy.AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme);
+		defaultPolicy.RequireAuthenticatedUser();
+		options.DefaultPolicy = defaultPolicy.Build();
+		options.AddPolicy("", defaultPolicy.Build());
+	}
+	options.AddPolicy(ExternalLoginScheme, policy =>
+	{
+		policy.AuthenticationSchemes = [ExternalLoginScheme];
+		policy.RequireAuthenticatedUser();
+	});
+});
 
+builder.Services.AddSingleton<SigningKey>();
 
+var oauthClientConfig = new
+{
+	ClientId = "mcp_server",
+	ClientSecret = "secret",
+	Scope = "openid profile notes admin",
+};
 
 
 
@@ -38,43 +87,32 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/login", async (string returnUrl, HttpResponse response) =>
+app.MapGet("/login", async (string returnUrl, HttpContext ctx, HttpResponse response) =>
 {
-	//todo: replace with actual login logic
-	response.Headers.ContentType = new string[] { "text/html" };
-	await response.WriteAsync(
-		$"""
-		<!DOCTYPE html>
-		<html>
-			<head>
-				<title>Login</title>
-			</head>
-			<body>
-				<h1>Login</h1>
-				<form method="post" action="/login?returnUrl={HttpUtility.UrlEncode(returnUrl)}">
-					<label for="username">Username:</label>
-					<input type="text" id="username" name="username" required />
-					<br />
-					<label for="password">Password:</label>
-					<input type="password" id="password" name="password" required />
-					<br />
-					<button type="submit">Login</button>
-				</form>
-			</body>
-		</html>
-		""");
+	var props = new AuthenticationProperties
+	{
+		RedirectUri = "login/callback",
+		Items =
+		{
+			{ "return_url", returnUrl }
+		}
+	};
+	return Results.Challenge(props, [ExternalLoginScheme]);
 });
 
-app.MapPost("/login", async (HttpContext ctx, string returnUrl) =>
+app.MapGet("/login/callback", async (HttpContext ctx) =>
 {
-	await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(new ClaimsIdentity(
-	[
-		new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-		new Claim(ClaimTypes.Name, "Manuel")
-	], CookieAuthenticationDefaults.AuthenticationScheme)));
-
-	return Results.Redirect(returnUrl);
-});
+	var result = await ctx.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+	if (result.Succeeded && result.Properties != null)
+	{
+		var returnUrl = result.Properties.Items["return_url"]!;
+		return Results.Redirect(returnUrl);
+	}
+	else
+	{
+		return Results.BadRequest(new { error = "invalid_request", error_description = "Invalid login" });
+	}
+}).RequireAuthorization(ExternalLoginScheme);
 
 app.MapGet("/oauth/authorize", (HttpRequest request, IDataProtectionProvider dataProtectionProvider) =>
 {
@@ -86,7 +124,7 @@ app.MapGet("/oauth/authorize", (HttpRequest request, IDataProtectionProvider dat
 		return Results.BadRequest(new { error = "invalid_request", state, iss, });
 	}
 
-	if (!request.Query.TryGetValue("client_id", out var clientId) || clientId != "mcp_server")
+	if (!request.Query.TryGetValue("client_id", out var clientId) || clientId != oauthClientConfig.ClientId)
 	{
 		return Results.BadRequest(new { error = "unauthorized_client", state, iss, });
 	}
@@ -94,13 +132,16 @@ app.MapGet("/oauth/authorize", (HttpRequest request, IDataProtectionProvider dat
 	request.Query.TryGetValue("code_challenge", out var codeChallenge);
 	request.Query.TryGetValue("code_challenge_method", out var codeChallengeMethod);
 	request.Query.TryGetValue("redirect_uri", out var redirectUri);
-	request.Query.TryGetValue("scope", out var scope);
+	if (!request.Query.TryGetValue("scope", out var scope) || scope != oauthClientConfig.Scope)
+	{
+		return Results.BadRequest(new { error = "invalid_scope", state, iss, });
+	}
 
 	var protector = dataProtectionProvider.CreateProtector("oauth");
 	var authCode = new AuthCode
 	{
 		UserId = request.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)!,
-		UserName = request.HttpContext.User.FindFirstValue(ClaimTypes.Name)!,
+		UserName = request.HttpContext.User.FindFirstValue("name"),
 		ClientId = clientId!,
 		RedirectUri = redirectUri!,
 		CodeChallenge = codeChallenge!,
@@ -111,7 +152,7 @@ app.MapGet("/oauth/authorize", (HttpRequest request, IDataProtectionProvider dat
 	return Results.Redirect($"{redirectUri}?code={code}&state={state}&iss={iss}");
 }).RequireAuthorization();
 
-app.MapPost("/oauth/token", async (HttpRequest request, DevKeys keys, IDataProtectionProvider dataProtectionProvider) =>
+app.MapPost("/oauth/token", async (HttpRequest request, SigningKey signingKey, IDataProtectionProvider dataProtectionProvider) =>
 {
 	var bodyBytes = await request.BodyReader.ReadAsync();
 	var bodyContent = Encoding.UTF8.GetString(bodyBytes.Buffer);
@@ -130,21 +171,46 @@ app.MapPost("/oauth/token", async (HttpRequest request, DevKeys keys, IDataProte
 		else if (key == "client_secret") clientSecret = value;
 	}
 
-	if (clientSecret != "secret")
+	if (clientId != oauthClientConfig.ClientId)
+	{
+		return Results.BadRequest(new { error = "invalid_client", error_description = "Invalid client id" });
+	}
+
+	if (clientSecret != oauthClientConfig.ClientSecret)
 	{
 		return Results.BadRequest(new { error = "invalid_client", error_description = "Invalid client secret" });
+	}
+
+	if (string.IsNullOrEmpty(grantType) || grantType != "authorization_code")
+	{
+		return Results.BadRequest(new { error = "invalid_grant", error_description = "Invalid grant type" });
 	}
 
 	var protector = dataProtectionProvider.CreateProtector("oauth");
 	var codeString = protector.Unprotect(code);
 	var authCode = JsonSerializer.Deserialize<AuthCode>(codeString);
 
-	if (authCode == null) return Results.BadRequest("Authorization code expired");
-	if (authCode.Expiry < DateTime.UtcNow) return Results.BadRequest("Authorization code expired");
+	if (authCode == null)
+	{
+		return Results.BadRequest(new { error = "invalid_grant", error_description = "Authorization code missing" });
+	}
+
+	if (authCode.Expiry < DateTime.UtcNow)
+	{
+		return Results.BadRequest(new { error = "invalid_grant", error_description = "Authorization code expired" });
+	}
+
+	if (authCode.RedirectUri != HttpUtility.UrlDecode(redirectUri))
+	{
+		return Results.BadRequest(new { error = "invalid_grant", error_description = "Invalid redirect uri" });
+	}
 
 	using var sha256 = SHA256.Create();
 	var codeChallenge = Base64UrlEncoder.Encode(sha256.ComputeHash(Encoding.ASCII.GetBytes(codeVerifier)));
-	if (authCode == null || authCode.CodeChallenge != codeChallenge) return Results.BadRequest("Invalid code verifier");
+	if (authCode == null || authCode.CodeChallenge != codeChallenge)
+	{
+		return Results.BadRequest(new { error = "invalid_grant", error_description = "Invalid code verifier" });
+	}
 
 	var handler = new JsonWebTokenHandler();
 	return Results.Ok(new
@@ -154,11 +220,11 @@ app.MapPost("/oauth/token", async (HttpRequest request, DevKeys keys, IDataProte
 			Claims = new Dictionary<string, object>
 			{
 				{ JwtRegisteredClaimNames.Sub, authCode.UserId },
-				{ JwtRegisteredClaimNames.Name, authCode.UserName }
+				{ JwtRegisteredClaimNames.Name, authCode.UserName ?? string.Empty }
 			},
 			Expires = DateTime.UtcNow.AddMinutes(5),
 			TokenType = "Bearer",
-			SigningCredentials = new SigningCredentials(keys.RsaSecurityKey, SecurityAlgorithms.RsaSha256),
+			SigningCredentials = new SigningCredentials(signingKey.RsaSecurityKey, SecurityAlgorithms.RsaSha256),
 		}),
 		token_type = "Bearer",
 	});
@@ -166,31 +232,32 @@ app.MapPost("/oauth/token", async (HttpRequest request, DevKeys keys, IDataProte
 
 app.Run();
 
-class DevKeys
+class SigningKey
 {
-	public DevKeys(IWebHostEnvironment env)
+	public SigningKey(IWebHostEnvironment env)
 	{
-		RsaKey = RSA.Create();
+		var rsaKey = RSA.Create();
 		var path = Path.Combine(env.ContentRootPath, "devkey.key");
 		if (File.Exists(path))
 		{
-			RsaKey.ImportRSAPrivateKey(File.ReadAllBytes(path), out _);
+			rsaKey.ImportRSAPrivateKey(File.ReadAllBytes(path), out _);
 		}
 		else
 		{
-			var privateKey = RsaKey.ExportRSAPrivateKey();
+			var privateKey = rsaKey.ExportRSAPrivateKey();
 			File.WriteAllBytes(path, privateKey);
 		}
+
+		this.RsaSecurityKey = new RsaSecurityKey(rsaKey);
 	}
 
-	public RSA RsaKey { get; }
-	public RsaSecurityKey RsaSecurityKey => new RsaSecurityKey(RsaKey);
+	public RsaSecurityKey RsaSecurityKey { get; }
 }
 
 class AuthCode
 {
 	public string UserId { get; set; } = null!;
-	public string UserName { get; set; } = null!;
+	public string? UserName { get; set; }
 	public string ClientId { get; set; } = null!;
 	public string RedirectUri { get; set; } = null!;
 	public string CodeChallenge { get; set; } = null!;
