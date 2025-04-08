@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -13,18 +14,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 
-const string ExternalLoginScheme = nameof(ExternalLoginScheme);
 builder.Services.AddAuthentication(config =>
 {
 	config.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 	config.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-	config.DefaultChallengeScheme = ExternalLoginScheme;
+	config.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
 })
 	.AddCookie(options =>
 	{
 		options.Cookie.Name = "OAuthServer.Session";
 	})
-	.AddOpenIdConnect(ExternalLoginScheme, o =>
+	.AddOpenIdConnect(o =>
 	{
 		o.Authority = "https://localhost:5001";
 		o.ClientId = "mcp_server";
@@ -42,7 +42,7 @@ builder.Services.AddAuthentication(config =>
 			var accesstoken = ctx.Properties?.GetTokenValue("access_token");
 			var handler = new JsonWebTokenHandler();
 			var token = handler.ReadJsonWebToken(accesstoken);
-			ctx.Principal!.AddIdentity(new ClaimsIdentity(token.Claims, ExternalLoginScheme));
+			ctx.Principal!.AddIdentity(new ClaimsIdentity(token.Claims, OpenIdConnectDefaults.AuthenticationScheme));
 
 			// Remove the access token from the cookie
 			ctx.Properties?.GetTokens().ToList().ForEach(token => ctx.Properties.UpdateTokenValue(token.Name, string.Empty));
@@ -74,9 +74,8 @@ builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>>(sp => sp.
 builder.Services.AddSingleton<IConfigureOptions<OAuth.Options>>(sp => sp.GetRequiredService<SigningKey>());
 builder.Services.Configure<OAuth.Options>(options =>
 {
-	options.ClientId = "mcp_client";
-	options.ClientSecret = "secret";
-	options.Scope = "openid profile notes admin";
+	options.ValidClientId = "mcp_client";
+	options.ValidClientSecret = "secret";
 	options.Audience = "mcp_server";
 });
 

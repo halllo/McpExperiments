@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Routing.Patterns;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -16,11 +17,20 @@ namespace OAuthServer
 	{
 		public class Options
 		{
-			public string? ClientId { get; set; }
-			public string? ClientSecret { get; set; }
-			public string? Scope { get; set; }
+			public string? ValidClientId { get; set; }
+			public string? ValidClientSecret { get; set; }
 			public string? Audience { get; set; }
 			public SecurityKey? SecurityKey { get; set; }
+		}
+
+		class ClientRegistration
+		{
+			public string[] redirect_uris { get; set; } = null!;
+			public string token_endpoint_auth_method { get; set; } = null!;
+			public string[] grant_types { get; set; } = null!;
+			public string[] response_types { get; set; } = null!;
+			public string client_name { get; set; } = null!;
+			public string client_uri { get; set; } = null!;
 		}
 
 		class AuthCode
@@ -37,16 +47,49 @@ namespace OAuthServer
 
 		public static IEndpointConventionBuilder MapOAuth(this IEndpointRouteBuilder endpoints, [StringSyntax("Route")] string pattern = "oauth")
 		{
-			return endpoints.MapOAuth(RoutePatternFactory.Parse(pattern));
-		}
+			endpoints.MapGet("/.well-known/oauth-authorization-server", (HttpRequest request) =>
+			{
+				var iss = new Uri($"{request.Scheme}://{request.Host}").AbsoluteUri.TrimEnd('/');
+				return Results.Ok(new
+				{
+					issuer = iss,
+					authorization_endpoint = $"{iss}/{pattern}/authorize",
+					token_endpoint = $"{iss}/{pattern}/token",
+					registration_endpoint = $"{iss}/{pattern}/register",
+					response_types_supported = new[] { "code" },
+					response_modes_supported = new[] { "query" },
+					grant_types_supported = new[] { "authorization_code", "refresh_token" },
+					token_endpoint_auth_methods_supported = new[] { "client_secret_basic", "client_secret_post", "none" },
+					revocation_endpoint = $"{iss}/{pattern}/token",
+					code_challenge_methods_supported = new[] { "plain", "S256" },
+				});
+			});
 
-		public static IEndpointConventionBuilder MapOAuth(this IEndpointRouteBuilder endpoints, RoutePattern pattern)
-		{
 			var routeGroup = endpoints.MapGroup(pattern);
+
+			ConcurrentDictionary<string, ClientRegistration> clientRegistrations = new(StringComparer.Ordinal);
+			routeGroup.MapPost("/register", ([FromBody] ClientRegistration clientRegistration) =>
+			{
+				var client_id = Guid.NewGuid();
+				clientRegistrations.AddOrUpdate(client_id.ToString(), clientRegistration, (key, oldValue) => clientRegistration);
+
+				return Results.Created($"/{pattern}/register/{client_id}", new
+				{
+					client_id,
+					clientRegistration.redirect_uris,
+					clientRegistration.client_name,
+					clientRegistration.client_uri,
+					clientRegistration.grant_types,
+					clientRegistration.response_types,
+					clientRegistration.token_endpoint_auth_method,
+					registration_client_uri = $"/{pattern}/register/{client_id}",
+					client_id_issued_at = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+				});
+			});
 
 			routeGroup.MapGet("/authorize", (HttpRequest request, IDataProtectionProvider dataProtectionProvider, IOptions<Options> options) =>
 			{
-				var iss = new Uri($"{request.Scheme}://{request.Host}").AbsoluteUri;
+				var iss = new Uri($"{request.Scheme}://{request.Host}").AbsoluteUri.TrimEnd('/');
 				request.Query.TryGetValue("state", out var state);
 
 				if (!request.Query.TryGetValue("response_type", out var responseType) || responseType != "code")
@@ -54,7 +97,7 @@ namespace OAuthServer
 					return Results.BadRequest(new { error = "invalid_request", state, iss, });
 				}
 
-				if (!request.Query.TryGetValue("client_id", out var clientId) || clientId != options.Value.ClientId)
+				if (!request.Query.TryGetValue("client_id", out var clientId) || clientId != options.Value.ValidClientId)
 				{
 					return Results.BadRequest(new { error = "unauthorized_client", state, iss, });
 				}
@@ -112,12 +155,12 @@ namespace OAuthServer
 					else if (key == "client_secret") clientSecret = value;
 				}
 
-				if (clientId != options.Value.ClientId)
+				if (clientId != options.Value.ValidClientId)
 				{
 					return Results.BadRequest(new { error = "invalid_client", error_description = "Invalid client id" });
 				}
 
-				if (clientSecret != options.Value.ClientSecret)
+				if (clientSecret != options.Value.ValidClientSecret)
 				{
 					return Results.BadRequest(new { error = "invalid_client", error_description = "Invalid client secret" });
 				}

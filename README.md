@@ -41,7 +41,9 @@ In this repository I am attempting to build an OAuth server middleware for MCP s
 
 OAuth server build based on <https://youtu.be/EBVKlm0wyTE>.
 
-todo
+```powershell
+npx @modelcontextprotocol/inspector
+```
 
 ## Resources
 
