@@ -6,6 +6,8 @@ using System.Security.Claims;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+
+var authority = new Uri("http://localhost:5209");
 builder.Services.AddAuthentication(config =>
 {
 	config.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -20,8 +22,8 @@ builder.Services.AddAuthentication(config =>
 	{
 		options.ClientId = "mcp_client";
 		options.ClientSecret = "secret";
-		options.AuthorizationEndpoint = "https://localhost:7148/oauth/authorize";
-		options.TokenEndpoint = "https://localhost:7148/oauth/token";
+		options.AuthorizationEndpoint = authority + "oauth/authorize";
+		options.TokenEndpoint = authority + "oauth/token";
 		options.CallbackPath = "/oauth/callback";
 		options.UsePkce = true;
 		options.Scope.Add("openid");
@@ -46,7 +48,7 @@ if (app.Environment.IsDevelopment())
 	app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 
 app.MapGet("/claims", async (HttpContext ctx) =>
@@ -57,7 +59,7 @@ app.MapGet("/claims", async (HttpContext ctx) =>
 	{
 		var accessToken = result.Properties.GetTokenValue("access_token");
 		using HttpClient client = new();
-		client.BaseAddress = new Uri("https://localhost:7148");
+		client.BaseAddress = authority;
 		client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 		using var response = await client.GetAsync("/session");
 		response.EnsureSuccessStatusCode();

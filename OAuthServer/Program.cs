@@ -88,7 +88,7 @@ if (app.Environment.IsDevelopment())
 	app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -101,7 +101,7 @@ var oauthClientConfig = new
 
 app.MapGet("/oauth/authorize", (HttpRequest request, IDataProtectionProvider dataProtectionProvider) =>
 {
-	var iss = HttpUtility.UrlEncode("https://localhost:7148");
+	var iss = new Uri($"{request.Scheme}://{request.Host}").AbsoluteUri;
 	request.Query.TryGetValue("state", out var state);
 
 	if (!request.Query.TryGetValue("response_type", out var responseType) || responseType != "code")
@@ -144,7 +144,7 @@ app.MapGet("/oauth/authorize", (HttpRequest request, IDataProtectionProvider dat
 		Expiry = DateTime.UtcNow.AddMinutes(5)
 	};
 	var code = protector.Protect(JsonSerializer.Serialize(authCode));
-	return Results.Redirect($"{redirectUri}?code={code}&state={state}&iss={iss}");
+	return Results.Redirect($"{redirectUri}?code={code}&state={state}&iss={HttpUtility.UrlEncode(iss)}");
 }).RequireAuthorization();
 
 app.MapPost("/oauth/token", async (HttpRequest request, SigningKey signingKey, IDataProtectionProvider dataProtectionProvider) =>
