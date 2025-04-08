@@ -8,7 +8,6 @@ using Microsoft.IdentityModel.Tokens;
 using OAuthServer;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using static OAuthServer.OAuth;
 
 var builder = WebApplication.CreateBuilder(args);
 
