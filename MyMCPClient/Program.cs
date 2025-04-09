@@ -35,23 +35,18 @@ catch (Exception e)
 
 
 
-
-await using var mcpClient1 = await McpClientFactory.CreateAsync(new McpServerConfig
+await using var mcpClient1 = await McpClientFactory.CreateAsync(new StdioClientTransport(new()
 {
-	Id = "time",
 	Name = "Time MCP Server",
-	TransportType = TransportTypes.StdIo,
-	Location = @"..\..\..\..\MyMCPServer.Stdio\bin\Debug\net9.0\MyMCPServer.Stdio.exe",
-});
+	Command = @"..\..\..\..\MyMCPServer.Stdio\bin\Debug\net9.0\MyMCPServer.Stdio.exe",
+}));
 var mcpClient1Tools = await mcpClient1.ListToolsAsync();
 
-await using var mcpClient2 = await McpClientFactory.CreateAsync(new McpServerConfig
+await using var mcpClient2 = await McpClientFactory.CreateAsync(new SseClientTransport(new()
 {
-	Id = "vibe",
 	Name = "Vibe MCP Server",
-	TransportType = TransportTypes.Sse,
-	Location = @"https://localhost:7296/sse",
-});
+	Endpoint = new Uri("https://localhost:7296/sse"),
+}));
 var mcpClient2Tools = await mcpClient2.ListToolsAsync();
 
 var mcpTools = mcpClient1Tools.Concat(mcpClient2Tools).ToList();

@@ -69,13 +69,10 @@ builder.Services.AddAuthorization(options =>
 	});
 });
 
-builder.Services.AddSingleton<SigningKey>();
-builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>>(sp => sp.GetRequiredService<SigningKey>());
-builder.Services.AddSingleton<IConfigureOptions<OAuth.Options>>(sp => sp.GetRequiredService<SigningKey>());
-builder.Services.Configure<OAuth.Options>(options =>
+builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, JwtBearerOptionsSigningKeyConfiguration>();
+
+builder.Services.AddOAuth<SigningKey, ClientRespository>(options =>
 {
-	options.ValidClientId = "mcp_client";
-	options.ValidClientSecret = "secret";
 	options.Audience = "mcp_server";
 });
 
@@ -95,7 +92,7 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapOAuth();
+app.MapOAuth("oauth");
 app.MapGet("/session", (HttpContext ctx) =>
 {
 	return Results.Ok(new { claims = ctx.User.Claims.Select(c => new { c.Type, c.Value }) });
@@ -103,7 +100,38 @@ app.MapGet("/session", (HttpContext ctx) =>
 
 app.Run();
 
-class SigningKey : IPostConfigureOptions<JwtBearerOptions>, IConfigureOptions<OAuth.Options>
+
+
+
+
+class ClientRespository : OAuth.IClientRepository
+{
+	public Task<OAuth.ClientRegistration?> Get(string clientId)
+	{
+		if (clientId == "mcp_server")
+		{
+			return Task.FromResult<OAuth.ClientRegistration?>(new OAuth.ClientRegistration
+			{
+				ClientName = "MCP Server",
+				RedirectUris = ["https://localhost:5001/signin-oidc"],
+				ClientUri = "https://localhost:5001",
+				GrantTypes = ["authorization_code"],
+				ResponseTypes = ["code"],
+				TokenEndpointAuthMethod = "client_secret_post",
+				ClientSecret = "secret",
+				Scopes = ["openid", "profile", "verification", "notes", "admin"],
+			});
+		}
+		else
+		{
+			return Task.FromResult<OAuth.ClientRegistration?>(null);
+		}
+	}
+
+	public Task Register(string clientId, OAuth.ClientRegistration clientRegistration) => throw new NotImplementedException();
+}
+
+class SigningKey : OAuth.IKeyProvider
 {
 	public SigningKey(IWebHostEnvironment env)
 	{
@@ -124,13 +152,28 @@ class SigningKey : IPostConfigureOptions<JwtBearerOptions>, IConfigureOptions<OA
 
 	public SecurityKey SecurityKey { get; }
 
-	public void Configure(OAuth.Options options)
+	public Task<SecurityKey> GetSigningKey()
 	{
-		options.SecurityKey = SecurityKey;
+		return Task.FromResult(this.SecurityKey);
 	}
 
 	public void PostConfigure(string? name, JwtBearerOptions options)
 	{
 		options.TokenValidationParameters.IssuerSigningKey = SecurityKey;
+	}
+}
+
+class JwtBearerOptionsSigningKeyConfiguration : IPostConfigureOptions<JwtBearerOptions>
+{
+	private readonly OAuth.IKeyProvider keyProvider;
+
+	public JwtBearerOptionsSigningKeyConfiguration(OAuth.IKeyProvider keyProvider)
+	{
+		this.keyProvider = keyProvider;
+	}
+
+	public void PostConfigure(string? name, JwtBearerOptions options)
+	{
+		options.TokenValidationParameters.IssuerSigningKey = keyProvider.GetSigningKey().Result;
 	}
 }
