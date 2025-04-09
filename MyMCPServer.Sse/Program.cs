@@ -32,10 +32,12 @@ builder.Services.AddAuthentication(config =>
 	config.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 	config.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
 })
+	//This is the cookie we are going to use for the OIDC authentication flow.
 	.AddCookie(options =>
 	{
 		options.Cookie.Name = "MyMCPServer.Sse.Session";
 	})
+	//This is the remote OIDC authentication the MCP server should use.
 	.AddOpenIdConnect(o =>
 	{
 		o.Authority = "https://localhost:5001";
@@ -62,7 +64,8 @@ builder.Services.AddAuthentication(config =>
 			return Task.CompletedTask;
 		};
 	})
-	.AddJwtBearer(options =>
+	//This is the bearer authentication we are going to require for the MCP endpoints.
+	.AddJwtBearer(options => 
 	{
 		options.TokenValidationParameters = new TokenValidationParameters
 		{
@@ -76,6 +79,7 @@ builder.Services.AddAuthentication(config =>
 
 builder.Services.AddAuthorization(options =>
 {
+	//With this policy we are going to require bearer authentication for the MCP endpoints.
 	options.AddPolicy(JwtBearerDefaults.AuthenticationScheme, policy =>
 	{
 		policy.AuthenticationSchemes = [JwtBearerDefaults.AuthenticationScheme];
@@ -83,12 +87,14 @@ builder.Services.AddAuthorization(options =>
 	});
 });
 
-builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, JwtBearerOptionsSigningKeyConfiguration>();
-
+//Lets configure MCP OAuth by providing the token signing key, a client repository for dynamic registration, and the JWT audience.
 builder.Services.AddOAuth<SigningKey, ClientRespository>(options =>
 {
 	options.Audience = "mcp_server";
 });
+
+//We need to configure the signing key for the JWT bearer authentication.
+builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, JwtBearerOptionsSigningKeyConfiguration>();
 
 
 
@@ -108,7 +114,6 @@ app.MapMcp().RequireAuthorization(JwtBearerDefaults.AuthenticationScheme);
 app.MapOAuth();
 
 app.Run();
-
 
 
 
