@@ -7,9 +7,9 @@ using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using OAuthServer;
-using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,15 +65,27 @@ builder.Services.AddAuthentication(config =>
 		};
 	})
 	//This is the bearer authentication we are going to require for the MCP endpoints.
-	.AddJwtBearer(options => 
+	.AddJwtBearer(options =>
 	{
 		options.TokenValidationParameters = new TokenValidationParameters
 		{
 			ValidateIssuer = false,//We dont want to provide a valid issuer URL here, which is changing based on local config. Validating the issuer signing key is enough.
 			ValidateAudience = true,
-			ValidateLifetime = true,
+			LifetimeValidator = (notBefore, expires, token, parameters) => expires > DateTime.UtcNow,
 			ValidateIssuerSigningKey = true,
 			ValidAudience = "mcp_server",
+		};
+
+		options.Events = new JwtBearerEvents
+		{
+			OnMessageReceived = context =>
+			{
+				return Task.CompletedTask;
+			},
+			OnTokenValidated = context =>
+			{
+				return Task.CompletedTask;
+			},
 		};
 	});
 
@@ -123,12 +135,9 @@ app.Run();
 
 class ClientRespository : OAuth.IClientRepository
 {
-	readonly ConcurrentDictionary<string, OAuth.ClientRegistration> clientRegistrations;
-
 	public ClientRespository()
 	{
-		clientRegistrations = new ConcurrentDictionary<string, OAuth.ClientRegistration>(StringComparer.Ordinal);
-		clientRegistrations.TryAdd("mcp_server", new OAuth.ClientRegistration
+		Register("mcp_server", new OAuth.ClientRegistration
 		{
 			ClientName = "MCP Server",
 			RedirectUris = ["https://localhost:5001/signin-oidc"],
@@ -138,20 +147,25 @@ class ClientRespository : OAuth.IClientRepository
 			TokenEndpointAuthMethod = "client_secret_post",
 			ClientSecret = "secret",
 			Scopes = ["openid", "profile", "verification", "notes", "admin"],
-		});
+		}).Wait();
 	}
 
-	public Task<OAuth.ClientRegistration?> Get(string clientId)
+	public async Task<OAuth.ClientRegistration?> Get(string clientId)
 	{
-		return clientRegistrations.TryGetValue(clientId, out var clientRegistration)
-			? Task.FromResult<OAuth.ClientRegistration?>(clientRegistration)
-			: Task.FromResult<OAuth.ClientRegistration?>(null);
+		if (File.Exists($"client_{clientId}.json"))
+		{
+			var clientRegistrationJson = await File.ReadAllTextAsync($"client_{clientId}.json");
+			return JsonSerializer.Deserialize<OAuth.ClientRegistration>(clientRegistrationJson);
+		}
+		else
+		{
+			return null;
+		}
 	}
 
-	public Task Register(string clientId, OAuth.ClientRegistration clientRegistration)
+	public async Task Register(string clientId, OAuth.ClientRegistration clientRegistration)
 	{
-		clientRegistrations.AddOrUpdate(clientId, clientRegistration, (key, oldValue) => clientRegistration);
-		return Task.CompletedTask;
+		await File.WriteAllTextAsync($"client_{clientId}.json", JsonSerializer.Serialize(clientRegistration, new JsonSerializerOptions { WriteIndented = true }));
 	}
 }
 

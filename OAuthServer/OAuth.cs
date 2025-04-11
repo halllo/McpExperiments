@@ -80,6 +80,15 @@ namespace OAuthServer
 			public DateTime Expiry { get; set; }
 		}
 
+		class RefreshToken
+		{
+			public string UserId { get; set; } = null!;
+			public string? UserName { get; internal set; }
+			public string ClientId { get; set; } = null!;
+			public string[]? Scopes { get; set; }
+			public DateTime Expiry { get; set; }
+		}
+
 		/// <summary>
 		/// Register reguired services for OAuth endpoints.
 		/// </summary>
@@ -294,6 +303,7 @@ namespace OAuthServer
 					return Results.BadRequest(new { error = "invalid_grant", error_description = "Invalid grant type" });
 				}
 
+				var protector = dataProtectionProvider.CreateProtector("oauth");
 				string userId;
 				string userName;
 				string[] scopes;
@@ -304,7 +314,6 @@ namespace OAuthServer
 						return Results.BadRequest(new { error = "invalid_grant", error_description = "Authorization code missing" });
 					}
 
-					var protector = dataProtectionProvider.CreateProtector("oauth");
 					var codeString = protector.Unprotect(code);
 					var authCode = JsonSerializer.Deserialize<AuthCode>(codeString);
 
@@ -333,38 +342,92 @@ namespace OAuthServer
 					userId = authCode.UserId;
 					userName = authCode.UserName ?? string.Empty;
 					scopes = authCode.Scopes ?? [];
+
+					var handler = new JsonWebTokenHandler();
+					var iss = new Uri($"{request.Scheme}://{request.Host}").AbsoluteUri.TrimEnd('/');
+					var accessToken = handler.CreateToken(new SecurityTokenDescriptor
+					{
+						Issuer = iss,
+						Subject = new ClaimsIdentity(
+						[
+							new Claim("sub", userId),
+							new Claim("name", userName),
+							..scopes.Select(s => new Claim("scope", s)),
+						]),
+						Audience = options.Value.Audience,
+						Expires = DateTime.UtcNow.AddMinutes(5),
+						TokenType = "Bearer",
+						SigningCredentials = new SigningCredentials(await keyProvider.GetSigningKey(), SecurityAlgorithms.RsaSha256),
+					});
+
+					var newRefreshToken = protector.Protect(JsonSerializer.Serialize(new RefreshToken
+					{
+						UserId = userId,
+						UserName = userName,
+						ClientId = clientId!,
+						Scopes = scopes,
+						Expiry = DateTime.UtcNow.AddHours(5)
+					}));
+					return Results.Ok(new
+					{
+						access_token = accessToken,
+						expires_in = 300,
+						token_type = "Bearer",
+						refresh_token = newRefreshToken,
+					});
 				}
 				else if (grantType == "refresh_token")
 				{
-					throw new NotImplementedException();
+					var refreshTokenDecoded = JsonSerializer.Deserialize<RefreshToken>(protector.Unprotect(refreshToken));
+					if (refreshTokenDecoded == null)
+					{
+						return Results.BadRequest(new { error = "invalid_grant", error_description = "Refresh token missing" });
+					}
+
+					if (refreshTokenDecoded.Expiry < DateTime.UtcNow)
+					{
+						return Results.BadRequest(new { error = "invalid_grant", error_description = "Authorization code expired" });
+					}
+
+					//todo: actually revoke the old refresh token to enable true rotation
+
+					var handler = new JsonWebTokenHandler();
+					var iss = new Uri($"{request.Scheme}://{request.Host}").AbsoluteUri.TrimEnd('/');
+					var accessToken = handler.CreateToken(new SecurityTokenDescriptor
+					{
+						Issuer = iss,
+						Subject = new ClaimsIdentity(
+						[
+							new Claim("sub", refreshTokenDecoded.UserId),
+							new Claim("name", refreshTokenDecoded.UserName ?? string.Empty),
+							..(refreshTokenDecoded.Scopes ?? []).Select(s => new Claim("scope", s)),
+						]),
+						Audience = options.Value.Audience,
+						Expires = DateTime.UtcNow.AddMinutes(5),
+						TokenType = "Bearer",
+						SigningCredentials = new SigningCredentials(await keyProvider.GetSigningKey(), SecurityAlgorithms.RsaSha256),
+					});
+
+					var newRefreshToken = protector.Protect(JsonSerializer.Serialize(new RefreshToken
+					{
+						UserId = refreshTokenDecoded.UserId,
+						UserName = refreshTokenDecoded.UserName,
+						ClientId = refreshTokenDecoded.ClientId,
+						Scopes = refreshTokenDecoded.Scopes,
+						Expiry = DateTime.UtcNow.AddHours(5)
+					}));
+					return Results.Ok(new
+					{
+						access_token = accessToken,
+						expires_in = 300,
+						token_type = "Bearer",
+						refresh_token = newRefreshToken,
+					});
 				}
 				else
 				{
 					return Results.BadRequest(new { error = "invalid_grant", error_description = "Invalid grant type" });
 				}
-
-				var handler = new JsonWebTokenHandler();
-				var iss = new Uri($"{request.Scheme}://{request.Host}").AbsoluteUri.TrimEnd('/');
-				var accessToken = handler.CreateToken(new SecurityTokenDescriptor
-				{
-					Issuer = iss,
-					Subject = new ClaimsIdentity(
-					[
-						new Claim("sub", userId),
-						new Claim("name", userName),
-						..scopes.Select(s => new Claim("scope", s)),
-					]),
-					Audience = options.Value.Audience,
-					Expires = DateTime.UtcNow.AddMinutes(5),
-					TokenType = "Bearer",
-					SigningCredentials = new SigningCredentials(await keyProvider.GetSigningKey(), SecurityAlgorithms.RsaSha256),
-				});
-				return Results.Ok(new
-				{
-					access_token = accessToken,
-					token_type = "Bearer",
-					//refresh_token = "",
-				});
 			});
 
 			return routeGroup;
