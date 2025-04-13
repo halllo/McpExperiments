@@ -5,7 +5,7 @@ VisualStudioVersion = 17.13.35507.96
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyMCPServer.Stdio", "MyMCPServer.Stdio\MyMCPServer.Stdio.csproj", "{AF76181F-12B0-444C-ACCA-F7D15D50481C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyMCPClient", "MyMCPClient\MyMCPClient.csproj", "{EF2ACF5C-26B0-4FE2-92EB-B64693433D4F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyMCPClient.Console", "MyMCPClient.Console\MyMCPClient.Console.csproj", "{EF2ACF5C-26B0-4FE2-92EB-B64693433D4F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModelContextProtocol", "..\mcp-csharp-sdk\src\ModelContextProtocol\ModelContextProtocol.csproj", "{643BD8CA-831E-5482-A1D6-680635AC7E7F}"
 EndProject
@@ -18,6 +18,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAuthClient.Web", "OAuthClient.Web\OAuthClient.Web.csproj", "{9ABCB22B-80C0-41E7-95BD-9C6A8B3191A6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAuthClient.Desktop", "OAuthClient.Desktop\OAuthClient.Desktop.csproj", "{2F195D51-8F92-4EED-A728-9C19EB8E36CF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyMCPClient.Web", "MyMCPClient.Web\MyMCPClient.Web.csproj", "{25D522CB-A5E2-45B0-B945-03DEDE38F9CB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -57,6 +59,10 @@ Global
 		{2F195D51-8F92-4EED-A728-9C19EB8E36CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2F195D51-8F92-4EED-A728-9C19EB8E36CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2F195D51-8F92-4EED-A728-9C19EB8E36CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{25D522CB-A5E2-45B0-B945-03DEDE38F9CB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{25D522CB-A5E2-45B0-B945-03DEDE38F9CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{25D522CB-A5E2-45B0-B945-03DEDE38F9CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{25D522CB-A5E2-45B0-B945-03DEDE38F9CB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

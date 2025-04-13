@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -124,6 +125,28 @@ app.UseAuthorization();
 app.MapGet("/", () => "Hello MCP!");
 app.MapMcp().RequireAuthorization(JwtBearerDefaults.AuthenticationScheme);
 app.MapOAuth();
+
+app.MapGet("/debug_token", async (HttpContext context, IOptions<OAuth.Options> options, OAuth.IKeyProvider keyProvider, [FromQuery] string userId, [FromQuery] string? userName = null) =>
+{
+	var request = context.Request;
+	var handler = new JsonWebTokenHandler();
+	var iss = new Uri($"{request.Scheme}://{request.Host}").AbsoluteUri.TrimEnd('/');
+	var accessToken = handler.CreateToken(new SecurityTokenDescriptor
+	{
+		Issuer = iss,
+		Subject = new ClaimsIdentity(
+		[
+			new Claim("sub", userId),
+			new Claim("name", userName ?? string.Empty),
+			..new[]{ "openid", "profile", "verification", "notes", "admin" }.Select(s => new Claim("scope", s)),
+		]),
+		Audience = options.Value.Audience,
+		Expires = DateTime.UtcNow.AddMinutes(5),
+		TokenType = "Bearer",
+		SigningCredentials = new SigningCredentials(await keyProvider.GetSigningKey(), SecurityAlgorithms.RsaSha256),
+	});
+	return Results.Ok(accessToken);
+});
 
 app.Run();
 

@@ -4,39 +4,34 @@ using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol.Transport;
 using System.ClientModel;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 
-List<McpClientTool> mcpTools = [];
-try
+await using var mcpClient1 = await McpClientFactory.CreateAsync(new StdioClientTransport(new()
 {
-	await using var mcpClient1 = await McpClientFactory.CreateAsync(new StdioClientTransport(new()
-	{
-		Name = "Time MCP Server",
-		Command = @"..\..\..\..\MyMCPServer.Stdio\bin\Debug\net9.0\MyMCPServer.Stdio.exe",
-	}));
-	var mcpClient1Tools = await mcpClient1.ListToolsAsync();
+	Name = "Time MCP Server",
+	Command = @"..\..\..\..\MyMCPServer.Stdio\bin\Debug\net9.0\MyMCPServer.Stdio.exe",
+}));
+var mcpClient1Tools = await mcpClient1.ListToolsAsync();
 
-	var http = new HttpClient();
-	http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "my_key");//todo: acquire JWT
-	await using var mcpClient2 = await McpClientFactory.CreateAsync(new SseClientTransport(new()
-	{
-		Name = "Vibe MCP Server",
-		Endpoint = new Uri("https://localhost:7296/sse"),
-	}, http));
-	var mcpClient2Tools = await mcpClient2.ListToolsAsync();
 
-	mcpTools = mcpClient1Tools.Concat(mcpClient2Tools).ToList();
-	Console.WriteLine("Available MCP tools:");
-	foreach (var tool in mcpTools)
-	{
-		Console.WriteLine($"- {tool}");
-	}
-	Console.WriteLine();
-}
-catch (Exception e)
+var http = new HttpClient();
+var tokenResponse = await http.GetAsync($"https://localhost:7296/debug_token?userId={Guid.NewGuid()}&userName={"bob"}");
+var debugtoken = await tokenResponse.Content.ReadFromJsonAsync<string>();
+http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", debugtoken);
+await using var mcpClient2 = await McpClientFactory.CreateAsync(new SseClientTransport(new()
 {
-	Console.WriteLine((e.InnerException ?? e).Message);
-	Environment.Exit(1);
+	Name = "Vibe MCP Server",
+	Endpoint = new Uri("https://localhost:7296/sse"),
+}, http));
+var mcpClient2Tools = await mcpClient2.ListToolsAsync();
+
+var mcpTools = mcpClient1Tools.Concat(mcpClient2Tools).ToList();
+Console.WriteLine("Available MCP tools:");
+foreach (var tool in mcpTools)
+{
+	Console.WriteLine($"- {tool}");
 }
+Console.WriteLine();
 
 
 
