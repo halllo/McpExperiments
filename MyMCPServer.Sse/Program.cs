@@ -13,8 +13,8 @@ using System.Security.Cryptography;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddMcpServer().WithToolsFromAssembly();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMcpServer().WithHttpTransport().WithToolsFromAssembly();
 
 builder.Services.AddCors(options =>
 {

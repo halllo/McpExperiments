@@ -1,5 +1,6 @@
 ﻿using ModelContextProtocol.Server;
 using System.ComponentModel;
+using System.Security.Claims;
 
 namespace MyMCPServer.Sse
 {
@@ -7,17 +8,23 @@ namespace MyMCPServer.Sse
 	public class VibeTool
 	{
 		private readonly ILogger<VibeTool> logger;
+		private readonly IHttpContextAccessor httpContextAccessor;
 
-		public VibeTool(ILogger<VibeTool> logger)
+		public VibeTool(ILogger<VibeTool> logger, IHttpContextAccessor httpContextAccessor)
 		{
 			this.logger = logger;
+			this.httpContextAccessor = httpContextAccessor;
 		}
 
 		[McpServerTool, Description("Gets the vibe in the provided location.")]
 		public string GetVibe(string location)
 		{
+			var user = this.httpContextAccessor.HttpContext?.User;
+			var name = user?.FindFirst("name")?.Value;
+			var sub = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
 			this.logger.LogInformation("Getting vibe in {location}.", location);
-			return $"Curious vibes in {location}.";
+			return $"Curious vibes for {name} in {location}.";
 		}
 	}
 }
