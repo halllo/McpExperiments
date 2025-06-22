@@ -13,6 +13,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMcpServer().WithHttpTransport().WithToolsFromAssembly();
 
@@ -117,17 +118,19 @@ builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, JwtBearer
 
 var app = builder.Build();
 
+app.MapOpenApi();
 app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/", () => "Hello MCP!");
+app.MapGet("/hello", () => "Hello MCP!");
 app.MapMcp().RequireAuthorization(JwtBearerDefaults.AuthenticationScheme);
 app.MapOAuth();
 
-app.MapGet("/debug_token", async (HttpContext context, IOptions<OAuth.Options> options, OAuth.IKeyProvider keyProvider, [FromQuery] string userId, [FromQuery] string? userName = null) =>
+app.MapGet("/debug_token", async (HttpContext context, IOptions<OAuth.Options> options, OAuth.IKeyProvider keyProvider, ILoggerFactory loggerFactory, [FromQuery] string userId, [FromQuery] string? userName = null) =>
 {
+	ILogger logger = loggerFactory.CreateLogger("debug_token");
 	var request = context.Request;
 	var handler = new JsonWebTokenHandler();
 	var iss = new Uri($"{request.Scheme}://{request.Host}").AbsoluteUri.TrimEnd('/');
@@ -145,6 +148,7 @@ app.MapGet("/debug_token", async (HttpContext context, IOptions<OAuth.Options> o
 		TokenType = "Bearer",
 		SigningCredentials = new SigningCredentials(await keyProvider.GetSigningKey(), SecurityAlgorithms.RsaSha256),
 	});
+	logger.LogWarning("Issued debug token for {User} {Id}", userName, userId);
 	return Results.Ok(accessToken);
 });
 

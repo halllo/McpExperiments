@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
-using ModelContextProtocol.Protocol.Transport;
 using System.ClientModel;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -37,19 +36,18 @@ Console.WriteLine();
 
 
 
-
-var chatClient = new OpenAIChatClient(new OpenAI.OpenAIClient(new ApiKeyCredential("my_key"), new OpenAI.OpenAIClientOptions()
+var openAiClient = new OpenAI.OpenAIClient(new ApiKeyCredential("my_key"), new OpenAI.OpenAIClientOptions()
 {
 	Endpoint = new Uri("http://127.0.0.1:1234/v1"),//lm studio
-}), "gemma-3-27b-it");
-
-
+});
+var openAiChatClient = openAiClient.GetChatClient("gemma-3-27b-it");
+var iChatClient = openAiChatClient.AsIChatClient();
 using var logFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace));
-var client = new ChatClientBuilder(chatClient)
+var client = iChatClient
+	.AsBuilder()
 	.UseLogging(logFactory)
 	.UseFunctionInvocation()
 	.Build();
-
 
 var message = "What is the current (CET) time in Karlsruhe, Germany? And what is the vibe there?";
 Console.WriteLine(message);

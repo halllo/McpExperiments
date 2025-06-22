@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAuthClient.Desktop", "OAut
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyMCPClient.Web", "MyMCPClient.Web\MyMCPClient.Web.csproj", "{25D522CB-A5E2-45B0-B945-03DEDE38F9CB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModelContextProtocol.Core", "..\mcp-csharp-sdk\src\ModelContextProtocol.Core\ModelContextProtocol.Core.csproj", "{675863AE-0D32-AEA9-1C21-97F6F5020D7D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -63,6 +65,10 @@ Global
 		{25D522CB-A5E2-45B0-B945-03DEDE38F9CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{25D522CB-A5E2-45B0-B945-03DEDE38F9CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{25D522CB-A5E2-45B0-B945-03DEDE38F9CB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{675863AE-0D32-AEA9-1C21-97F6F5020D7D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{675863AE-0D32-AEA9-1C21-97F6F5020D7D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{675863AE-0D32-AEA9-1C21-97F6F5020D7D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{675863AE-0D32-AEA9-1C21-97F6F5020D7D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

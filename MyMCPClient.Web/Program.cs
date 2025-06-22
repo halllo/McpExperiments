@@ -1,7 +1,6 @@
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Caching.Memory;
 using ModelContextProtocol.Client;
-using ModelContextProtocol.Protocol.Transport;
 using System.ClientModel;
 using System.Net.Http.Headers;
 

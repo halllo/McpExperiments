@@ -90,7 +90,7 @@ namespace OAuthServer
 		}
 
 		/// <summary>
-		/// Register reguired services for OAuth endpoints.
+		/// Register required services for OAuth endpoints.
 		/// </summary>
 		public static IServiceCollection AddOAuth<TSigningKeyProvider, TClientRepository>(this IServiceCollection services, Action<Options> optionsConfiguration)
 			where TSigningKeyProvider : class, IKeyProvider
