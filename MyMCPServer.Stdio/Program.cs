@@ -9,7 +9,7 @@ builder.Services
 	.WithStdioServerTransport()
 	.WithToolsFromAssembly();
 
-Console.WriteLine("Running MCP Server...");
+//Console.WriteLine("Running MCP Server..."); //no console writing, because it confuses the Stdio transport
 await builder.Build().RunAsync();
 
 [McpServerToolType]

@@ -8,6 +8,20 @@ There is a dotnet MCP client that makes it available to a local LLM which invoke
 
 It uses the official [mcp-csharp-sdk](https://github.com/modelcontextprotocol/csharp-sdk).
 
+## Develop
+
+Build all MCP projects:
+
+```powershell
+dotnet build
+```
+
+Start the MCP server over SSE:
+
+```powershell
+dotnet run --project MyMCPServer.Sse --launch-profile https
+```
+
 ## Claude Desktop
 
 To add it to [Claude Desktop](https://claude.ai/download), change the `claude_desktop_config.json` like this:
