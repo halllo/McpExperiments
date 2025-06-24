@@ -88,6 +88,15 @@ builder.Services.AddAuthentication(config =>
 			{
 				return Task.CompletedTask;
 			},
+			OnChallenge = context =>
+			{
+				var request = context.Request;
+				var prmUrl = $"{request.Scheme}://{request.Host}/.well-known/oauth-protected-resource";
+				var headerValue = $"Bearer resource_metadata=\"{prmUrl}\"";
+				context.Response.Headers["WWW-Authenticate"] = headerValue;
+				context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+				return Task.CompletedTask;
+			}
 		};
 	});
 
@@ -125,8 +134,20 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/hello", () => "Hello MCP!");
+
 app.MapMcp().RequireAuthorization(JwtBearerDefaults.AuthenticationScheme);
 app.MapOAuth();
+
+app.MapGet("/.well-known/oauth-protected-resource", (HttpContext context) =>
+{
+    return Results.Json(new
+    {
+        resource = "http://localhost:5253",
+        authorization_servers = new[] { "http://localhost:5253" /*"https://localhost:5001/"*/ },
+        bearer_methods_supported = new[] { "header", "body" },
+        scopes_supported = new[] { "openid", "profile", "verification", "notes", "admin" }
+    });
+});
 
 app.MapGet("/debug_token", async (HttpContext context, IOptions<OAuth.Options> options, OAuth.IKeyProvider keyProvider, ILoggerFactory loggerFactory, [FromQuery] string userId, [FromQuery] string? userName = null) =>
 {
