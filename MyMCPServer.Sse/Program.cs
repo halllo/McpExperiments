@@ -66,8 +66,8 @@ builder.Services.AddAuthentication(config =>
 			return Task.CompletedTask;
 		};
 	})
-	//This is the bearer authentication we are going to require for the MCP endpoints.
-	.AddJwtBearer(options =>
+	//This is the bearer authentication we are going to require for the MCP endpoints (MCP server is also an IDP).
+	.AddJwtBearer("mcp=idp", options =>
 	{
 		options.TokenValidationParameters = new TokenValidationParameters
 		{
@@ -76,6 +76,40 @@ builder.Services.AddAuthentication(config =>
 			LifetimeValidator = (notBefore, expires, token, parameters) => expires > DateTime.UtcNow,
 			ValidateIssuerSigningKey = true,
 			ValidAudience = "mcp_server",
+		};
+
+		options.Events = new JwtBearerEvents
+		{
+			OnMessageReceived = context =>
+			{
+				return Task.CompletedTask;
+			},
+			OnTokenValidated = context =>
+			{
+				return Task.CompletedTask;
+			},
+			OnChallenge = context =>
+			{
+				var request = context.Request;
+				var prmUrl = $"{request.Scheme}://{request.Host}/.well-known/oauth-selfprotected-resource";
+				var headerValue = $"Bearer resource_metadata=\"{prmUrl}\"";
+				context.Response.Headers["WWW-Authenticate"] = headerValue;
+				context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+				return Task.CompletedTask;
+			}
+		};
+	})
+	//This is the bearer authentication we are going to require for the MCP endpoints (MCP server is only a resource provider).
+	.AddJwtBearer("mcp=rp", options =>
+	{
+		options.Authority = "https://localhost:5001";
+		options.TokenValidationParameters = new TokenValidationParameters
+		{
+			ValidateIssuer = true,
+			ValidateIssuerSigningKey = true,
+			ValidateAudience = true,
+			ValidAudience = "http://localhost:5253",
+			LifetimeValidator = (notBefore, expires, token, parameters) => expires > DateTime.UtcNow,
 		};
 
 		options.Events = new JwtBearerEvents
@@ -102,10 +136,14 @@ builder.Services.AddAuthentication(config =>
 
 builder.Services.AddAuthorization(options =>
 {
-	//With this policy we are going to require bearer authentication for the MCP endpoints.
-	options.AddPolicy(JwtBearerDefaults.AuthenticationScheme, policy =>
+	options.AddPolicy("mcp=idp", policy =>
 	{
-		policy.AuthenticationSchemes = [JwtBearerDefaults.AuthenticationScheme];
+		policy.AuthenticationSchemes = ["mcp=idp"];
+		policy.RequireAuthenticatedUser();
+	});
+	options.AddPolicy("mcp=rp", policy =>
+	{
+		policy.AuthenticationSchemes = ["mcp=rp"];
 		policy.RequireAuthenticatedUser();
 	});
 });
@@ -135,18 +173,32 @@ app.UseAuthorization();
 
 app.MapGet("/hello", () => "Hello MCP!");
 
-app.MapMcp().RequireAuthorization(JwtBearerDefaults.AuthenticationScheme);
+app.MapMcp()
+	//.RequireAuthorization("mcp=idp")
+	.RequireAuthorization("mcp=rp")
+	;
 app.MapOAuth();
+
+app.MapGet("/.well-known/oauth-selfprotected-resource", (HttpContext context) =>
+{
+	return Results.Json(new
+	{
+		resource = "http://localhost:5253",
+		authorization_servers = new[] { "http://localhost:5253" },
+		bearer_methods_supported = new[] { "header", "body" },
+		scopes_supported = new[] { "openid", "profile", "verification", "notes", "admin" }
+	});
+});
 
 app.MapGet("/.well-known/oauth-protected-resource", (HttpContext context) =>
 {
-    return Results.Json(new
-    {
-        resource = "http://localhost:5253",
-        authorization_servers = new[] { "http://localhost:5253" /*"https://localhost:5001/"*/ },
-        bearer_methods_supported = new[] { "header", "body" },
-        scopes_supported = new[] { "openid", "profile", "verification", "notes", "admin" }
-    });
+	return Results.Json(new
+	{
+		resource = "http://localhost:5253",
+		authorization_servers = new[] { "https://localhost:5001" },
+		bearer_methods_supported = new[] { "header", "body" },
+		scopes_supported = new[] { "openid", "profile", "verification", "notes", "admin" }
+	});
 });
 
 app.MapGet("/debug_token", async (HttpContext context, IOptions<OAuth.Options> options, OAuth.IKeyProvider keyProvider, ILoggerFactory loggerFactory, [FromQuery] string userId, [FromQuery] string? userName = null) =>
@@ -260,6 +312,9 @@ class JwtBearerOptionsSigningKeyConfiguration : IPostConfigureOptions<JwtBearerO
 
 	public void PostConfigure(string? name, JwtBearerOptions options)
 	{
-		options.TokenValidationParameters.IssuerSigningKey = keyProvider.GetSigningKey().Result;
+		if (name == "mcp=idp")
+		{
+			options.TokenValidationParameters.IssuerSigningKey = keyProvider.GetSigningKey().Result;
+		}
 	}
 }

@@ -47,25 +47,36 @@ Claude Desktop seems to not yet natively support SSE transport.
 
 ## Authorization
 
-Web-based MCP servers using SSE should require authorization.
-
-~~According to the [specification](https://spec.modelcontextprotocol.io/specification/2025-03-26/basic/authorization/) the MCP server should also be an OAuth authorization server.~~
-
-According to the [specification](https://modelcontextprotocol.io/specification/draft/basic/authorization) the MCP server should provide _Protected Resource Metadata_ to point to an OAuth servers _Authorization Service Metadata_. That AS should implement _Dynamic Client Registration_.
+Web-based MCP servers using SSE or streamable HTTP should require authorization.
 
 Microsoft [plans to implement all specified authentication protocols described in the MCP spec](https://devblogs.microsoft.com/blog/microsoft-partners-with-anthropic-to-create-official-c-sdk-for-model-context-protocol?commentid=47#comment-47), but there is no roadmap yet.
 
-In this repository I am attempting to build an OAuth server (middleware) for MCP servers.
-
-OAuth server build based on <https://youtu.be/EBVKlm0wyTE>.
-
-To test it, we can use the _mcp inspector_ and the browser developer tools.
+In this repository I am experimenting with differnt kinds of authentication and authorization for MCP servers. To test it, we can use the _mcp inspector_ and the browser developer tools.
 
 ```powershell
 npx @modelcontextprotocol/inspector
 ```
 
-🛠️ Make it work with [Duende Identity Server](https://duendesoftware.com/products/identityserver).
+### MCP server as Identity Provider
+
+~~According to the first [specification](https://spec.modelcontextprotocol.io/specification/2025-03-26/basic/authorization/) the MCP server should also be an OAuth authorization server. To experiment with that, I built a light-weight OAuth server base on <https://youtu.be/EBVKlm0wyTE>.~~
+
+### MCP server as Resource Provider
+
+According to the current [specification](https://modelcontextprotocol.io/specification/draft/basic/authorization) the MCP server should provide _Protected Resource Metadata_ to point to an OAuth server's _Authorization Service Metadata_. That AS should implement _Dynamic Client Registration_.
+
+We use [Duende Identity Server](https://duendesoftware.com/products/identityserver) to build a centralized Authorization Server. Unfortunately Duende does not yet support MCP in combination with `@modelcontextprotocol/inspector`. So I had to apply a few adjustments to my [experimental instance of Duende](https://github.com/halllo/PermissionedNotes/tree/main/IdentityServer).
+
+- provide the OIDC discovery document also at `.well-known/oauth-authorization-server`
+- the discovery document needs to also include the `registration_endpoint` endpoint for DCR
+- MCP inspector does not register clients with any scopes, so we add all scopes to the newly registered clients
+- MCP inspector does not follow redirects of DCR endpoint, so we cannot use frontchannel authorization
+- MCP inspector does not provide scopes during the `/authorize` request (just the resource indicator), so we inject all scopes of the resource to bypass Duende's `missing scope` validation
+
+As next steps I need to look into MCP inspector to better understand if it could
+
+- pass scopes during DCR and `/authorize`
+- follow redirects and deal with DCR requiring authorization
 
 ## Resources
 
