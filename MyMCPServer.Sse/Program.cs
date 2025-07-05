@@ -15,7 +15,12 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddMcpServer().WithHttpTransport().WithToolsFromAssembly();
+builder.Services.AddMcpServer()
+	.WithHttpTransport(o =>
+	{
+		//o.Stateless = true; //to get IHttpContextAccessor back with streamable-http transport, according to https://github.com/modelcontextprotocol/csharp-sdk/issues/365#issuecomment-2859953161, but it breaks SSE
+	})
+	.WithToolsFromAssembly();
 
 builder.Services.AddCors(options =>
 {
