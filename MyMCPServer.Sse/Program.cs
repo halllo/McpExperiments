@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using ModelContextProtocol.AspNetCore.Authentication;
 using OAuthServer;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -113,9 +114,11 @@ builder.Services.AddAuthentication(config =>
 			ValidateIssuer = true,
 			ValidateIssuerSigningKey = true,
 			ValidateAudience = true,
-			ValidAudience = "http://localhost:5253",
+			ValidAudience = "http://localhost:5253/sse",
 			LifetimeValidator = (notBefore, expires, token, parameters) => expires > DateTime.UtcNow,
 		};
+
+		options.ForwardChallenge = McpAuthenticationDefaults.AuthenticationScheme;
 
 		options.Events = new JwtBearerEvents
 		{
@@ -129,13 +132,22 @@ builder.Services.AddAuthentication(config =>
 			},
 			OnChallenge = context =>
 			{
-				var request = context.Request;
-				var prmUrl = $"{request.Scheme}://{request.Host}/.well-known/oauth-protected-resource";
-				var headerValue = $"Bearer resource_metadata=\"{prmUrl}\"";
-				context.Response.Headers["WWW-Authenticate"] = headerValue;
-				context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+				//var request = context.Request;
+				//var prmUrl = $"{request.Scheme}://{request.Host}/.well-known/oauth-protected-resource";
+				//var headerValue = $"Bearer resource_metadata=\"{prmUrl}\"";
+				//context.Response.Headers["WWW-Authenticate"] = headerValue; is now set by `ForwardChallenge = McpAuthenticationDefaults.AuthenticationScheme;`
+				//context.Response.StatusCode = StatusCodes.Status401Unauthorized;
 				return Task.CompletedTask;
 			}
+		};
+	})
+	.AddMcp(options =>
+	{
+		options.ResourceMetadata = new()
+		{
+			Resource = new Uri("http://localhost:5253/sse"),
+			AuthorizationServers = { new Uri("https://localhost:5001") },
+			ScopesSupported = ["openid", "profile", "verification", "notes", "admin"],
 		};
 	});
 
@@ -184,27 +196,27 @@ app.MapMcp()
 	;
 app.MapOAuth();
 
-app.MapGet("/.well-known/oauth-selfprotected-resource", (HttpContext context) =>
-{
-	return Results.Json(new
-	{
-		resource = "http://localhost:5253",
-		authorization_servers = new[] { "http://localhost:5253" },
-		bearer_methods_supported = new[] { "header", "body" },
-		scopes_supported = new[] { "openid", "profile", "verification", "notes", "admin" }
-	});
-});
+//app.MapGet("/.well-known/oauth-selfprotected-resource", (HttpContext context) =>
+//{
+//	return Results.Json(new
+//	{
+//		resource = "http://localhost:5253",
+//		authorization_servers = new[] { "http://localhost:5253" },
+//		bearer_methods_supported = new[] { "header", "body" },
+//		scopes_supported = new[] { "openid", "profile", "verification", "notes", "admin" }
+//	});
+//});
 
-app.MapGet("/.well-known/oauth-protected-resource", (HttpContext context) =>
-{
-	return Results.Json(new
-	{
-		resource = "http://localhost:5253",
-		authorization_servers = new[] { "https://localhost:5001" },
-		bearer_methods_supported = new[] { "header", "body" },
-		scopes_supported = new[] { "openid", "profile", "verification", "notes", "admin" }
-	});
-});
+//app.MapGet("/.well-known/oauth-protected-resource", (HttpContext context) =>
+//{
+//	return Results.Json(new
+//	{
+//		resource = "http://localhost:5253",
+//		authorization_servers = new[] { "https://localhost:5001" },
+//		bearer_methods_supported = new[] { "header", "body" },
+//		scopes_supported = new[] { "openid", "profile", "verification", "notes", "admin" }
+//	});
+//});
 
 app.MapGet("/debug_token", async (HttpContext context, IOptions<OAuth.Options> options, OAuth.IKeyProvider keyProvider, ILoggerFactory loggerFactory, [FromQuery] string userId, [FromQuery] string? userName = null) =>
 {
