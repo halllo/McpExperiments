@@ -12,11 +12,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\mcp-csharp-sdk\src\ModelContextProtocol\ModelContextProtocol.csproj" />
+    <Folder Include="Properties\" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Properties\" />
+    <ProjectReference Include="..\..\mcp-csharp-sdk\src\ModelContextProtocol\ModelContextProtocol.csproj" />
   </ItemGroup>
 
 </Project>

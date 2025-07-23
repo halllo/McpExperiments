@@ -33,17 +33,15 @@ To add it to [Claude Desktop](https://claude.ai/download), change the `claude_de
             "command": "D:\\McpExperiments\\MyMCPServer.Stdio\\bin\\Debug\\net9.0\\MyMCPServer.Stdio.exe"
         },
         "getVibe": {
-            "command": "npx",
-            "args": [
-                "mcp-remote@0.0.9",
-                "http://localhost:5253/sse"
-            ]
+            "command": "D:\\McpExperiments\\MyMCPServer.Sse\\claude_desktop.cmd"
         }
     }
 }
 ```
 
-Claude Desktop seems to not yet natively support SSE transport.
+Claude Desktop supports remote MCP servers as "Connectors" ([Building Remote MCP Servers](https://support.anthropic.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers)), but adding custom ones only on Pro/Max or Enterprise/Team plans ([Getting Started with Custom Connectors Using Remote MCP](https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp)).
+
+We can use [mcp-remote](https://www.npmjs.com/package/mcp-remote) for that.
 
 ## Authorization
 
