@@ -16,7 +16,7 @@ Build all MCP projects:
 dotnet build
 ```
 
-Start the MCP server over SSE:
+Start the MCP server over SSE and streamable HTTP:
 
 ```powershell
 dotnet run --project MyMCPServer.Sse --launch-profile https

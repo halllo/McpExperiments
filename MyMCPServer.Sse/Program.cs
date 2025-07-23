@@ -114,7 +114,7 @@ builder.Services.AddAuthentication(config =>
 			ValidateIssuer = true,
 			ValidateIssuerSigningKey = true,
 			ValidateAudience = true,
-			ValidAudience = "http://localhost:5253/sse",
+			ValidAudience = "http://localhost:5253/",
 			LifetimeValidator = (notBefore, expires, token, parameters) => expires > DateTime.UtcNow,
 		};
 
@@ -145,7 +145,7 @@ builder.Services.AddAuthentication(config =>
 	{
 		options.ResourceMetadata = new()
 		{
-			Resource = new Uri("http://localhost:5253/sse"),
+			Resource = new Uri("http://localhost:5253"),
 			AuthorizationServers = { new Uri("https://localhost:5001") },
 			ScopesSupported = ["openid", "profile", "verification", "notes", "admin"],
 		};

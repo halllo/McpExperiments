@@ -4,8 +4,6 @@ using ModelContextProtocol.Client;
 using System.ClientModel;
 using System.Diagnostics;
 using System.Net;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Web;
 
@@ -27,7 +25,8 @@ var http = new HttpClient();
 await using var mcpClient2 = await McpClientFactory.CreateAsync(new SseClientTransport(new()
 {
 	Name = "Vibe MCP Server",
-	Endpoint = new Uri("http://localhost:5253/sse"),
+	Endpoint = new Uri("http://localhost:5253/"),
+	TransportMode = HttpTransportMode.StreamableHttp,
 	OAuth = new()
 	{
 		ClientName = $"ProtectedMcpClient_{DateTime.Now:yyyyMMddHHmmss}",

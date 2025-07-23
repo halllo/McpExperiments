@@ -16,7 +16,8 @@ builder.Services.AddHttpClient("mcp").AddHttpMessageHandler<SetAccessToken>().Ad
 builder.Services.AddScoped(sp => new SseClientTransport(new()
 {
 	Name = "Vibe MCP Server",
-	Endpoint = new Uri("https://localhost:7296/sse"),
+	Endpoint = new Uri("https://localhost:7296/"),
+	TransportMode = HttpTransportMode.StreamableHttp,
 }, sp.GetRequiredKeyedService<HttpClient>("mcp")));
 
 builder.Services.AddScoped<IChatClient>(sp => new FunctionInvokingChatClient(new OpenAI.Chat.ChatClient("gemma-3-27b-it", new ApiKeyCredential("my_key"), new OpenAI.OpenAIClientOptions()
