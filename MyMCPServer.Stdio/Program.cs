@@ -9,7 +9,7 @@ builder.Services
 	.WithStdioServerTransport()
 	.WithToolsFromAssembly();
 
-//Console.WriteLine("Running MCP Server..."); //no console writing, because it confuses the Stdio transport
+Console.WriteLine("Running MCP Server..."); //confuses Claude Desktop a little (there are warning toasts on startup), but it still works.
 await builder.Build().RunAsync();
 
 [McpServerToolType]
