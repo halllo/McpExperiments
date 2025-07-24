@@ -41,7 +41,7 @@ To add it to [Claude Desktop](https://claude.ai/download), change the `claude_de
 
 Claude Desktop supports remote MCP servers as "Connectors" ([Building Remote MCP Servers](https://support.anthropic.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers)), but adding custom ones only on Pro/Max or Enterprise/Team plans ([Getting Started with Custom Connectors Using Remote MCP](https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp)).
 
-We can use [mcp-remote](https://www.npmjs.com/package/mcp-remote) for that.
+We can use [mcp-remote](https://www.npmjs.com/package/mcp-remote) for that. By default is uses _Dynamic Client Registration_ and stores its client credentials in `~\.mcp-auth`.
 
 ## Authorization
 
