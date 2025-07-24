@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "MyMCPServer.Stdio.Cli": {
+      "commandName": "Project",
+      "commandLineArgs": "guid"
+    }
+  }
+}

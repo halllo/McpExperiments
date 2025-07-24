@@ -32,6 +32,12 @@ To add it to [Claude Desktop](https://claude.ai/download), change the `claude_de
         "getTime": {
             "command": "D:\\McpExperiments\\MyMCPServer.Stdio\\bin\\Debug\\net9.0\\MyMCPServer.Stdio.exe"
         },
+        "getCli": {
+            "command": "D:\\McpExperiments\\MyMCPServer.Stdio.Cli\\bin\\Debug\\net9.0\\MyMCPServer.Stdio.Cli.exe",
+            "args": [ 
+                "mcp"
+            ]
+        },
         "getVibe": {
             "command": "D:\\McpExperiments\\MyMCPServer.Sse\\claude_desktop.cmd"
         }
