@@ -23,7 +23,7 @@ namespace MyMCPServer.Sse
 			var name = user?.FindFirst("name")?.Value;
 			var sub = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-			this.logger.LogInformation("Getting vibe in {location}.", location);
+			this.logger.LogInformation("[{user} ({sub})] Getting vibe in {location}.", name, sub, location);
 			return $"Curious vibes for {name} in {location}.";
 		}
 	}
