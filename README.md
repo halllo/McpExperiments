@@ -74,6 +74,7 @@ We use [Duende Identity Server](https://duendesoftware.com/products/identityserv
 - provide the OIDC discovery document also at `.well-known/oauth-authorization-server`
 - the discovery document needs to also include the `registration_endpoint` endpoint for DCR
 - MCP inspector does not register clients with any scopes, so we add all scopes to the newly registered clients
+- MCP inspector registers a public client without a client_secret and does not remember and provide generated secrets in the `/token` request, so we dont generate a secret and dont require one, unless explicitly requested via `require_client_secret=true` (⚠️ This could be problematic if other clients expect a different default, so we would need some means to differentiate the clients expectations.)
 - MCP inspector does not follow redirects of DCR endpoint, so we cannot use frontchannel authorization
 - MCP inspector does not provide scopes during the `/authorize` request (just the resource indicator), so we inject all scopes of the resource to bypass Duende's `missing scope` validation
 
@@ -81,6 +82,8 @@ As next steps I need to look into MCP inspector to better understand if it could
 
 - pass scopes during DCR and `/authorize`
 - follow redirects and deal with DCR requiring authorization
+
+⚠️ MCP inspector currently requires the oauth-protected-resource's resource identifier to match the origin of the MCP endpoint. [Does protected resource's resource identifier HAVE TO match MCP server's URI? #812](https://github.com/modelcontextprotocol/inspector/issues/812).
 
 ## Resources
 

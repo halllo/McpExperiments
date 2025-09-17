@@ -72,7 +72,7 @@ builder.Services.AddAuthentication(config =>
 			return Task.CompletedTask;
 		};
 	})
-	//This is the bearer authentication we are going to require for the MCP endpoints (MCP server is also an IDP).
+	//This is deprecated bearer authentication for the MCP endpoints, where the MCP server is also an IDP.
 	.AddJwtBearer("mcp=idp", options =>
 	{
 		options.TokenValidationParameters = new TokenValidationParameters
@@ -105,19 +105,17 @@ builder.Services.AddAuthentication(config =>
 			}
 		};
 	})
-	//This is the bearer authentication we are going to require for the MCP endpoints (MCP server is only a resource provider).
+	//This is the new bearer authentication for the MCP endpoints, where MCP server is only a resource provider.
 	.AddJwtBearer("mcp=rp", options =>
 	{
 		options.Authority = "https://localhost:5001";
+		options.Audience = "http://localhost:5253";
 		options.TokenValidationParameters = new TokenValidationParameters
 		{
 			ValidateIssuer = true,
 			ValidateIssuerSigningKey = true,
-			ValidateAudience = true,
-			ValidAudience = "http://localhost:5253/",
-			LifetimeValidator = (notBefore, expires, token, parameters) => expires > DateTime.UtcNow,
 		};
-
+		
 		options.ForwardChallenge = McpAuthenticationDefaults.AuthenticationScheme;
 
 		options.Events = new JwtBearerEvents
