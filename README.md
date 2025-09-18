@@ -83,7 +83,18 @@ As next steps I need to look into MCP inspector to better understand if it could
 - pass scopes during DCR and `/authorize`
 - follow redirects and deal with DCR requiring authorization
 
-⚠️ MCP inspector currently requires the oauth-protected-resource's resource identifier to match the origin of the MCP endpoint. [Does protected resource's resource identifier HAVE TO match MCP server's URI? #812](https://github.com/modelcontextprotocol/inspector/issues/812).
+#### Limitations
+
+⚠️ MCP inspector currently requires the oauth-protected-resource's resource identifier to match the origin of the MCP endpoint. [Does protected resource's resource identifier HAVE TO match MCP server's URI? #812](https://github.com/modelcontextprotocol/inspector/issues/812). That is making localhost debugging more difficult, but spec compliant.
+
+⚠️ MCP inspector currently does not follow the `resource_metadata` URI of the `WWW-Authenticate` response header to locate the protected resource metadata according to [Section 5 of RFC9728](https://www.ietf.org/rfc/rfc9728.html#name-use-of-www-authenticate-for) ([OAuth flow does not support resourceMetadataUrl #576](https://github.com/modelcontextprotocol/inspector/issues/576)). Instead it follows a set of hardcoded rules or permutations to find one:
+
+1. <http://localhost:5253/.well-known/oauth-protected-resource/bot>
+2. <http://localhost:5253/.well-known/oauth-protected-resource>
+3. <http://localhost:5253/.well-known/oauth-authorization-server>
+4. <http://localhost:5253/.well-known/openid-configuration>
+
+When the returned WWW-Authenticate contains `Bearer realm="McpAuth", resource_metadata="http://localhost:5253/bot/.well-known/oauth-protected-resource"`, it should immediately acquire the protected resource metadata from <http://localhost:5253/bot/.well-known/oauth-protected-resource>. If no `resource_metadata` is provided, then it may fall back to trying permutations.
 
 ## Resources
 

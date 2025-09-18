@@ -86,14 +86,8 @@ builder.Services.AddAuthentication(config =>
 
 		options.Events = new JwtBearerEvents
 		{
-			OnMessageReceived = context =>
-			{
-				return Task.CompletedTask;
-			},
-			OnTokenValidated = context =>
-			{
-				return Task.CompletedTask;
-			},
+			OnMessageReceived = context => { return Task.CompletedTask; },
+			OnTokenValidated = context => { return Task.CompletedTask; },
 			OnChallenge = context =>
 			{
 				var request = context.Request;
@@ -109,25 +103,19 @@ builder.Services.AddAuthentication(config =>
 	.AddJwtBearer("mcp=rp", options =>
 	{
 		options.Authority = "https://localhost:5001";
-		options.Audience = "http://localhost:5253";
+		options.Audience = "http://localhost:5253/bot";
 		options.TokenValidationParameters = new TokenValidationParameters
 		{
 			ValidateIssuer = true,
 			ValidateIssuerSigningKey = true,
 		};
-		
+
 		options.ForwardChallenge = McpAuthenticationDefaults.AuthenticationScheme;
 
 		options.Events = new JwtBearerEvents
 		{
-			OnMessageReceived = context =>
-			{
-				return Task.CompletedTask;
-			},
-			OnTokenValidated = context =>
-			{
-				return Task.CompletedTask;
-			},
+			OnMessageReceived = context => { return Task.CompletedTask; },
+			OnTokenValidated = context => { return Task.CompletedTask; },
 			OnChallenge = context =>
 			{
 				//var request = context.Request;
@@ -141,9 +129,10 @@ builder.Services.AddAuthentication(config =>
 	})
 	.AddMcp(options =>
 	{
+		options.ResourceMetadataUri = new("/bot/.well-known/oauth-protected-resource", UriKind.Relative);
 		options.ResourceMetadata = new()
 		{
-			Resource = new Uri("http://localhost:5253"),
+			Resource = new Uri("http://localhost:5253/bot"),
 			AuthorizationServers = { new Uri("https://localhost:5001") },
 			ScopesSupported = ["openid", "profile", "verification", "notes", "admin"],
 		};
@@ -188,11 +177,11 @@ app.UseAuthorization();
 
 app.MapGet("/hello", () => "Hello MCP!");
 
-app.MapMcp()
+app.MapMcp("bot")
 	//.RequireAuthorization("mcp=idp")
 	.RequireAuthorization("mcp=rp")
 	;
-app.MapOAuth();
+//app.MapOAuth(); //we no longer need this, as we are not an IDP anymore
 
 //app.MapGet("/.well-known/oauth-selfprotected-resource", (HttpContext context) =>
 //{
