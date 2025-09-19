@@ -9,12 +9,12 @@ using System.Web;
 
 
 // Local tool
-await using var mcpClient1 = await McpClientFactory.CreateAsync(new StdioClientTransport(new()
-{
-	Name = "Time MCP Server",
-	Command = @"..\..\..\..\MyMCPServer.Stdio\bin\Debug\net9.0\MyMCPServer.Stdio.exe",
-}));
-var mcpClient1Tools = await mcpClient1.ListToolsAsync();
+// await using var mcpClient1 = await McpClientFactory.CreateAsync(new StdioClientTransport(new()
+// {
+// 	Name = "Time MCP Server",
+// 	Command = @"..\..\..\..\MyMCPServer.Stdio\bin\Debug\net9.0\MyMCPServer.Stdio.exe",
+// }));
+var mcpClient1Tools = Enumerable.Empty<McpClientTool>();//await mcpClient1.ListToolsAsync();
 
 
 // Remote tool
@@ -25,11 +25,12 @@ var http = new HttpClient();
 await using var mcpClient2 = await McpClientFactory.CreateAsync(new SseClientTransport(new()
 {
 	Name = "Vibe MCP Server",
-	Endpoint = new Uri("http://localhost:5253/"),
+	Endpoint = new Uri("http://localhost:5253/bot"),
 	TransportMode = HttpTransportMode.StreamableHttp,
 	OAuth = new()
 	{
-		ClientName = $"ProtectedMcpClient_{DateTime.Now:yyyyMMddHHmmss}",
+		ClientId = "mcp_console",
+		//ClientName = $"ProtectedMcpClient_{DateTime.Now:yyyyMMddHHmmss}", //we already have a client_id and dont need dynamic client registration
 		RedirectUri = new Uri("http://localhost:1179/callback"),
 		AuthorizationRedirectDelegate = HandleAuthorizationUrlAsync,
 		Scopes = ["openid", "profile", "verification", "notes", "admin"],
@@ -125,31 +126,31 @@ Console.WriteLine();
 
 
 // LLM
-var openAiClient = new OpenAI.OpenAIClient(new ApiKeyCredential("my_key"), new OpenAI.OpenAIClientOptions()
-{
-	Endpoint = new Uri("http://127.0.0.1:1234/v1"),//lm studio
-});
-var openAiChatClient = openAiClient.GetChatClient("gemma-3-27b-it");
-var iChatClient = openAiChatClient.AsIChatClient();
-using var logFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace));
-var client = iChatClient
-	.AsBuilder()
-	.UseLogging(logFactory)
-	.UseFunctionInvocation()
-	.Build();
+// var openAiClient = new OpenAI.OpenAIClient(new ApiKeyCredential("my_key"), new OpenAI.OpenAIClientOptions()
+// {
+// 	Endpoint = new Uri("http://127.0.0.1:1234/v1"),//lm studio
+// });
+// var openAiChatClient = openAiClient.GetChatClient("gemma-3-27b-it");
+// var iChatClient = openAiChatClient.AsIChatClient();
+// using var logFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Trace));
+// var client = iChatClient
+// 	.AsBuilder()
+// 	.UseLogging(logFactory)
+// 	.UseFunctionInvocation()
+// 	.Build();
 
-var message = "What is the current (CET) time in Karlsruhe, Germany? And what is the vibe there?";
-Console.WriteLine(message);
+// var message = "What is the current (CET) time in Karlsruhe, Germany? And what is the vibe there?";
+// Console.WriteLine(message);
 
-IList<ChatMessage> messages =
-[
-	new(ChatRole.System, "You are a helpful assistant delivering time and vibes in one short sentence."),
-	new(ChatRole.User, message)
-];
+// IList<ChatMessage> messages =
+// [
+// 	new(ChatRole.System, "You are a helpful assistant delivering time and vibes in one short sentence."),
+// 	new(ChatRole.User, message)
+// ];
 
-var response = await client.GetResponseAsync(messages, new ChatOptions { Tools = [.. mcpTools] });
+// var response = await client.GetResponseAsync(messages, new ChatOptions { Tools = [.. mcpTools] });
 
-Console.WriteLine(response);
+// Console.WriteLine(response);
 
 Console.WriteLine("Press enter to end.");
 Console.ReadLine();
