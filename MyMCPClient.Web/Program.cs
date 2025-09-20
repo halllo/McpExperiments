@@ -15,7 +15,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddTransient<SetAccessToken>();
 builder.Services.AddHttpClient("mcp").AddHttpMessageHandler<SetAccessToken>().AddAsKeyed();
 
-builder.Services.AddScoped(sp => new SseClientTransport(new()
+builder.Services.AddScoped(sp => new HttpClientTransport(new()
 {
 	Name = "Vibe MCP Server",
 	Endpoint = new Uri("https://localhost:7296/"),
@@ -67,16 +67,16 @@ app.UseAuthorization();
 
 app.MapGet("/account", (HttpContext context) => Results.Ok(context.User.Claims.Select(c => new { c.Type, c.Value }))).RequireAuthorization();
 
-app.MapGet("/tools", async (SseClientTransport sse) =>
+app.MapGet("/tools", async (HttpClientTransport sse) =>
 {
-	await using var mcpClient = await McpClientFactory.CreateAsync(sse);
+	await using var mcpClient = await McpClient.CreateAsync(sse);
 	var tools = await mcpClient.ListToolsAsync();
 	return Results.Ok(tools.Select(t => new { t.Name, t.Description, t.JsonSchema }));
 }).RequireAuthorization();
 
-app.MapGet("/invoke", async (SseClientTransport sse, IChatClient chatClient) =>
+app.MapGet("/invoke", async (HttpClientTransport sse, IChatClient chatClient) =>
 {
-	await using var mcpClient = await McpClientFactory.CreateAsync(sse);
+	await using var mcpClient = await McpClient.CreateAsync(sse);
 	var tools = await mcpClient.ListToolsAsync();
 
 	IList<ChatMessage> messages =

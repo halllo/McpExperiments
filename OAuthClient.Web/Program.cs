@@ -31,11 +31,12 @@ builder.Services.AddAuthentication(config =>
 		options.Scope.Add("notes");
 		options.Scope.Add("admin");
 		options.SaveTokens = true;
-		options.Events.OnCreatingTicket = async ctx =>
+		options.Events.OnCreatingTicket = ctx =>
 		{
 			var handler = new JsonWebTokenHandler();
 			var token = handler.ReadJsonWebToken(ctx.AccessToken);
 			ctx.Principal!.AddIdentity(new ClaimsIdentity(token.Claims, "oauth"));
+			return Task.CompletedTask;
 		};
 	});
 builder.Services.AddAuthorization();

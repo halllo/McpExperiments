@@ -36,7 +36,7 @@ builder.Services.AddAuthentication(config =>
 		o.Scope.Add("notes");
 		o.Scope.Add("admin");
 		o.SaveTokens = true;
-		o.Events.OnTicketReceived = async ctx =>
+		o.Events.OnTicketReceived = ctx =>
 		{
 			// Add the access token claims to the cookie
 			var accesstoken = ctx.Properties?.GetTokenValue("access_token");
@@ -46,6 +46,8 @@ builder.Services.AddAuthentication(config =>
 
 			// Remove the access token from the cookie
 			ctx.Properties?.GetTokens().ToList().ForEach(token => ctx.Properties.UpdateTokenValue(token.Name, string.Empty));
+			
+			return Task.CompletedTask;
 		};
 	})
 	.AddJwtBearer(options =>

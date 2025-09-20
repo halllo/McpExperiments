@@ -10,6 +10,7 @@ namespace MyMCPServer.Cli.Stdio.Verbs
 	{
 		public async Task<string> Do(ILogger<NewGuid> logger)
 		{
+			await Task.Yield();
 			var newGuid = Guid.NewGuid();
 			logger.LogInformation("Generated new GUID: {Guid}", newGuid);
 			return newGuid.ToString();

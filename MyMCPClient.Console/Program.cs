@@ -22,7 +22,7 @@ var http = new HttpClient();
 //var tokenResponse = await http.GetAsync($"https://localhost:7296/debug_token?userId={Guid.NewGuid()}&userName={"bob"}");
 //var debugtoken = await tokenResponse.Content.ReadFromJsonAsync<string>();
 //http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", debugtoken);
-await using var mcpClient2 = await McpClientFactory.CreateAsync(new SseClientTransport(new()
+await using var mcpClient2 = await McpClient.CreateAsync(new HttpClientTransport(new()
 {
 	Name = "Vibe MCP Server",
 	Endpoint = new Uri("http://localhost:5253/bot"),
