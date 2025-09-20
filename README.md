@@ -22,33 +22,6 @@ Start the MCP server over SSE and streamable HTTP:
 dotnet run --project MyMCPServer.Sse --launch-profile https
 ```
 
-## Claude Desktop
-
-To add it to [Claude Desktop](https://claude.ai/download), change the `claude_desktop_config.json` like this:
-
-```json
-{
-    "mcpServers": {
-        "getTime": {
-            "command": "D:\\McpExperiments\\MyMCPServer.Stdio\\bin\\Debug\\net9.0\\MyMCPServer.Stdio.exe"
-        },
-        "getCli": {
-            "command": "D:\\McpExperiments\\MyMCPServer.Stdio.Cli\\bin\\Debug\\net9.0\\MyMCPServer.Stdio.Cli.exe",
-            "args": [ 
-                "mcp"
-            ]
-        },
-        "getVibe": {
-            "command": "D:\\McpExperiments\\MyMCPServer.Sse\\claude_desktop.cmd"
-        }
-    }
-}
-```
-
-Claude Desktop supports remote MCP servers as "Connectors" ([Building Remote MCP Servers](https://support.anthropic.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers)), but adding custom ones only on Pro/Max or Enterprise/Team plans ([Getting Started with Custom Connectors Using Remote MCP](https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp)).
-
-We can use [mcp-remote](https://www.npmjs.com/package/mcp-remote) for that. By default is uses _Dynamic Client Registration_ and stores its client credentials in `~\.mcp-auth`.
-
 ## Authorization
 
 Web-based MCP servers using SSE or streamable HTTP should require authorization.
@@ -95,6 +68,114 @@ As next steps I need to look into MCP inspector to better understand if it could
 4. <http://localhost:5253/.well-known/openid-configuration>
 
 When the returned WWW-Authenticate contains `Bearer realm="McpAuth", resource_metadata="http://localhost:5253/bot/.well-known/oauth-protected-resource"`, it should immediately acquire the protected resource metadata from <http://localhost:5253/bot/.well-known/oauth-protected-resource>. If no `resource_metadata` is provided, then it may fall back to trying permutations.
+
+## Claude Desktop
+
+To install local MCP servers (stdio) in [Claude Desktop](https://claude.ai/download), we can easily add them to the `claude_desktop_config.json` like this:
+
+```json
+{
+    "mcpServers": {
+        "getTime": {
+            "command": "D:\\McpExperiments\\MyMCPServer.Stdio\\bin\\Debug\\net9.0\\MyMCPServer.Stdio.exe"
+        },
+        "getCli": {
+            "command": "D:\\McpExperiments\\MyMCPServer.Stdio.Cli\\bin\\Debug\\net9.0\\MyMCPServer.Stdio.Cli.exe",
+            "args": [ 
+                "mcp"
+            ]
+        }
+    }
+}
+```
+
+Claude Desktop supports remote MCP servers as "Connectors" ([Building Remote MCP Servers](https://support.anthropic.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers)), but adding custom ones only on Pro/Max or Enterprise/Team plans ([Getting Started with Custom Connectors Using Remote MCP](https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp)).
+
+Custom OAuth `client_id` are currently only available for Claude for Work. For non-work accounts it requires DCR. A localhost hosted MCP server can be added, but "connecting" it does not seem to work: Claude Desktop just opens Claude Web but does not actually do anything and Claude Web just reloads the page.
+
+We can use [mcp-remote](https://www.npmjs.com/package/mcp-remote) for that. By default it uses _Dynamic Client Registration_ and stores its client credentials in `~\.mcp-auth`. But we can provide static oauth metadata:
+
+```powershell
+$env:NODE_OPTIONS='--use-system-ca'
+npx mcp-remote 'http://localhost:5253/bot' 63113 --static-oauth-client-info '{\"client_id\":\"mcp-remote\"}'
+```
+
+```cmd
+set NODE_OPTIONS=--use-system-ca
+npx mcp-remote http://localhost:5253/bot 63113 --static-oauth-client-info "{\"client_id\":\"mcp-remote\"}"
+```
+
+```json
+{
+    "mcpServers": {
+        "getVibe": {
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "http://localhost:5253/bot",
+                "63113",
+                "--static-oauth-client-info",
+                "{\"client_id\":\"mcp-remote\"}"
+            ],
+            "env": {
+                "NODE_OPTIONS": "--use-system-ca"
+            }
+        }
+    }
+}
+```
+
+Or via script [claude_desktop.cmd](MyMCPServer.Sse/claude_desktop.cmd):
+
+```json
+{
+  "mcpServers": {
+    "getVibe": {
+      "command": "D:\\McpExperiments\\MyMCPServer.Sse\\claude_desktop.cmd"
+    }
+  }
+}
+```
+
+However, this currently fails during "Completing authorization" with a 404. What endpoint is it trying to call?
+The protected resource metadata is detected with a `testTransport`, but not fed forward into the actual transport in [connectToRemoteServer()](https://github.com/geelen/mcp-remote/blob/ce68351da4991bb795c2cccb94bf3649e5843cf4/src/lib/utils.ts#L312C1-L336C69):
+
+```typescript
+const transport = sseTransport ? new SSEClientTransport(url, {
+  authProvider,
+  requestInit: { headers },
+  eventSourceInit
+}) : new StreamableHTTPClientTransport(url, {
+ authProvider,
+ requestInit: { headers }
+});
+try {
+  debugLog("Attempting to connect to remote server", { sseTransport });
+  if (client) {
+    debugLog("Connecting client to transport");
+    await client.connect(transport);
+  } else {
+    debugLog("Starting transport directly");
+    await transport.start();
+    if (!sseTransport) {
+      debugLog("Creating test transport for HTTP-only connection test");
+      const testTransport = new StreamableHTTPClientTransport(url, { authProvider, requestInit: { headers } });
+      const testClient = new Client({ name: "mcp-remote-fallback-test", version: "0.0.0" }, { capabilities: {} });
+      await testClient.connect(testTransport);
+    }
+  }
+  return transport;
+} catch (error) {
+  transport._resourceMetadataUrl = testTransport._resourceMetadataUrl;//this line would fix it (todo: pr!)
+  //...interactive authentication
+}
+```
+
+## ChatGPT
+
+MCP support requires ChatGPT Plus. Then users can enable "Developer mode" (which is still in BETA) and create a new connector. Custom OAuth `client_id` is not supported.
+
+Adding a localhost hosted MCP server only resulted in "Error fetching OAuth configuration".
 
 ## Resources
 

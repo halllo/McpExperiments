@@ -103,9 +103,9 @@ builder.Services.AddAuthentication(config =>
 	.AddJwtBearer("mcp=rp", options =>
 	{
 		options.Authority = "https://localhost:5001";
-		options.Audience = "http://localhost:5253/bot";
 		options.TokenValidationParameters = new TokenValidationParameters
 		{
+			ValidAudiences = ["http://localhost:5253/bot", "https://localhost:7296/bot"],
 			ValidateIssuer = true,
 			ValidateIssuerSigningKey = true,
 		};
@@ -130,11 +130,15 @@ builder.Services.AddAuthentication(config =>
 	.AddMcp(options =>
 	{
 		options.ResourceMetadataUri = new("/bot/.well-known/oauth-protected-resource", UriKind.Relative);
-		options.ResourceMetadata = new()
+		options.Events.OnResourceMetadataRequest = context =>
 		{
-			Resource = new Uri("http://localhost:5253/bot"),
-			AuthorizationServers = { new Uri("https://localhost:5001") },
-			ScopesSupported = ["openid", "profile", "verification", "notes", "admin"],
+			context.ResourceMetadata = new()
+			{
+				Resource = new Uri($"{context.Request.Scheme}://{context.Request.Host}/bot"),
+				AuthorizationServers = { new Uri("https://localhost:5001") },
+				ScopesSupported = ["openid", "profile", "verification", "notes", "admin"],
+			};
+			return Task.CompletedTask;
 		};
 	});
 
