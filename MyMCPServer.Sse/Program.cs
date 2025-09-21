@@ -136,7 +136,7 @@ builder.Services.AddAuthentication(config =>
 			{
 				Resource = new Uri($"{context.Request.Scheme}://{context.Request.Host}/bot"),
 				AuthorizationServers = { new Uri("https://localhost:5001") },
-				ScopesSupported = ["openid", "profile", "verification", "notes", "admin"],
+				ScopesSupported = ["openid", "profile", "verification", "notes", "admin"],//dont include "offline_access" here, as not all clients may support refresh tokens.
 			};
 			return Task.CompletedTask;
 		};

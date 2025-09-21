@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Web;
+using System.Linq;
 
 
 // Local tool
@@ -14,7 +15,6 @@ using System.Web;
 // 	Name = "Time MCP Server",
 // 	Command = @"..\..\..\..\MyMCPServer.Stdio\bin\Debug\net9.0\MyMCPServer.Stdio.exe",
 // }));
-var mcpClient1Tools = Enumerable.Empty<McpClientTool>();//await mcpClient1.ListToolsAsync();
 
 
 // Remote tool
@@ -33,7 +33,7 @@ await using var mcpClient2 = await McpClient.CreateAsync(new HttpClientTransport
 		//ClientName = $"ProtectedMcpClient_{DateTime.Now:yyyyMMddHHmmss}", //we already have a client_id and dont need dynamic client registration
 		RedirectUri = new Uri("http://localhost:1179/callback"),
 		AuthorizationRedirectDelegate = HandleAuthorizationUrlAsync,
-		Scopes = ["openid", "profile", "verification", "notes", "admin"],
+		Scopes = ["openid", "profile", "verification", "notes", "admin", "offline_access"],//the client we registered supports refresh tokens
 	},
 }, http));
 
@@ -112,9 +112,8 @@ static async Task<string?> HandleAuthorizationUrlAsync(Uri authorizationUrl, Uri
 	}
 }
 
-var mcpClient2Tools = await mcpClient2.ListToolsAsync();
-
-var mcpTools = mcpClient1Tools.Concat(mcpClient2Tools).ToList();
+var mcpClients = new[] { /*mcpClient1,*/ mcpClient2 };
+var mcpTools = await mcpClients.ToAsyncEnumerable().SelectManyAwait(async c => (await c.ListToolsAsync()).ToAsyncEnumerable()).ToListAsync();
 Console.WriteLine("Available MCP tools:");
 foreach (var tool in mcpTools)
 {
@@ -152,5 +151,13 @@ Console.WriteLine();
 
 // Console.WriteLine(response);
 
+
+
+
 Console.WriteLine("Press enter to end.");
 Console.ReadLine();
+
+foreach (var mcpClient in mcpClients)
+{
+	await mcpClient.DisposeAsync();
+}
