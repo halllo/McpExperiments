@@ -114,8 +114,15 @@ builder.Services.AddAuthentication(config =>
 
 		options.Events = new JwtBearerEvents
 		{
-			OnMessageReceived = context => { return Task.CompletedTask; },
-			OnTokenValidated = context => { return Task.CompletedTask; },
+			OnMessageReceived = context =>
+			{
+				var authHeader = context.Request.Headers["Authorization"];
+				return Task.CompletedTask;
+			},
+			OnTokenValidated = context =>
+			{
+				return Task.CompletedTask;
+			},
 			OnChallenge = context =>
 			{
 				//var request = context.Request;
@@ -129,7 +136,8 @@ builder.Services.AddAuthentication(config =>
 	})
 	.AddMcp(options =>
 	{
-		options.ResourceMetadataUri = new("/bot/.well-known/oauth-protected-resource", UriKind.Relative);
+		//options.ResourceMetadataUri = new("/bot/.well-known/oauth-protected-resource", UriKind.Relative);
+		options.ResourceMetadataUri = new("/.well-known/oauth-protected-resource/bot", UriKind.Relative);//required by MCP inspector, because it has it hardcoded and does not take it from www-authenticate header (https://github.com/modelcontextprotocol/inspector/issues/576).
 		options.Events.OnResourceMetadataRequest = context =>
 		{
 			context.ResourceMetadata = new()
