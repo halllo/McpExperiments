@@ -7,7 +7,11 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using ModelContextProtocol;
 using ModelContextProtocol.AspNetCore.Authentication;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
+using MyMCPServer.Sse;
 using OAuthServer;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -16,12 +20,61 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddMcpServer()
+builder.Services.AddMcpServer(o =>
+{
+	//these handlers are invoken in addition to the tools registered with `WithTools<Tool>()`
+	o.Handlers = new McpServerHandlers()
+	{
+		ListToolsHandler = (request, cancellationToken) =>
+			ValueTask.FromResult(new ListToolsResult
+			{
+				Tools =
+				[
+					new Tool
+						{
+							Name = "echo",
+							Description = "Echoes the input back to the client.",
+							InputSchema = JsonSerializer.Deserialize<JsonElement>("""
+								{
+									"type": "object",
+									"properties": {
+									"message": {
+										"type": "string",
+										"description": "The input to echo back"
+									}
+									},
+									"required": ["message"]
+								}
+								"""),
+						}
+				]
+			}),
+
+		CallToolHandler = (request, cancellationToken) =>
+		{
+			if (request.Params?.Name == "echo")
+			{
+				if (request.Params.Arguments?.TryGetValue("message", out var message) is not true)
+				{
+					throw new McpException("Missing required argument 'message'");
+				}
+
+				return ValueTask.FromResult(new CallToolResult
+				{
+					Content = [new TextContentBlock { Text = $"Echo: {message}", Type = "text" }]
+				});
+			}
+
+			throw new McpException($"Unknown tool: '{request.Params?.Name}'");
+		}
+	};
+})
 	.WithHttpTransport(o =>
 	{
 		//o.Stateless = true; //to get IHttpContextAccessor back with streamable-http transport, according to https://github.com/modelcontextprotocol/csharp-sdk/issues/365#issuecomment-2859953161, but it breaks SSE
 	})
-	.WithToolsFromAssembly();
+	.WithTools<VibeTool>()
+	;
 
 builder.Services.AddCors(options =>
 {
