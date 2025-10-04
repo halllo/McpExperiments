@@ -401,3 +401,4 @@ FodyWeavers.xsd
 
 # Misc
 *.key
+token_cache.json

@@ -7,6 +7,7 @@ using System.Net;
 using System.Text;
 using System.Web;
 using System.Linq;
+using System.Text.Json;
 
 
 // Local tool
@@ -34,6 +35,7 @@ await using var mcpClient2 = await McpClient.CreateAsync(new HttpClientTransport
 		RedirectUri = new Uri("http://localhost:1179/callback"),
 		AuthorizationRedirectDelegate = HandleAuthorizationUrlAsync,
 		Scopes = ["openid", "profile", "verification", "notes", "admin", "offline_access"],//the client we registered supports refresh tokens
+		TokenCache = new TokenCacheFile("token_cache.json"),
 	},
 }, http));
 
@@ -119,9 +121,11 @@ foreach (var tool in mcpTools)
 {
 	Console.WriteLine($"- {tool}");
 }
-Console.WriteLine();
 
-
+Console.WriteLine("Invoking...");
+var invoked = await mcpTools.First(t => t.Name == "get_vibe").InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?> { { "location", "Karlsruhe" } } ));
+Console.WriteLine(JsonSerializer.Serialize(invoked, new JsonSerializerOptions { WriteIndented = true }));
+//todo: how to return additional contents?
 
 
 // LLM
