@@ -177,6 +177,23 @@ MCP support requires ChatGPT Plus. Then users can enable "Developer mode" (which
 
 Adding a localhost hosted MCP server only resulted in "Error fetching OAuth configuration".
 
+## Nanobot
+
+To better test the MCP servers of this project, we can use a local MCP host like [nanobot](https://www.nanobot.ai). It seems to support OAuth and mcp-ui.
+
+```bash
+export OPENAI_API_KEY=sk-proj-...
+nanobot run ./nanobot.yaml
+```
+
+It seems to require client_secret and auth_endpoint, even though the client config does not require a secret and the authorize endpoint can be determined based on PRM and authorization server metadata.
+
+However nanobot still fails with a weird error:
+
+```log
+failed to setup auth: failed to create oauth proxy: invalid mode: middleware
+```
+
 ## Resources
 
 - [MCP](https://github.com/modelcontextprotocol)
