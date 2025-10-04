@@ -11,10 +11,10 @@ using System.Text.Json;
 
 
 // Local tool
-// await using var mcpClient1 = await McpClientFactory.CreateAsync(new StdioClientTransport(new()
+// await using var mcpClient1 = await McpClient.CreateAsync(new StdioClientTransport(new()
 // {
-// 	Name = "Time MCP Server",
-// 	Command = @"..\..\..\..\MyMCPServer.Stdio\bin\Debug\net9.0\MyMCPServer.Stdio.exe",
+// 	Name = "Stdio MCP Server",
+// 	Command = @"../../../../MyMCPServer.Stdio/bin/Debug/net9.0/MyMCPServer.Stdio",
 // }));
 
 
@@ -123,7 +123,9 @@ foreach (var tool in mcpTools)
 }
 
 Console.WriteLine("Invoking...");
-var invoked = await mcpTools.First(t => t.Name == "get_vibe").InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?> { { "location", "Karlsruhe" } } ));
+var invoked =
+	//await mcpTools.First(t => t.Name == "echo").InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?> { { "message", "Karlsruhe" } }));;
+	await mcpTools.First(t => t.Name == "get_vibe").InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?> { { "location", "Karlsruhe" } }));
 Console.WriteLine(JsonSerializer.Serialize(invoked, new JsonSerializerOptions { WriteIndented = true }));
 //todo: how to return additional contents?
 
