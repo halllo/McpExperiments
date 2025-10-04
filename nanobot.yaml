@@ -1,0 +1,18 @@
+agents:
+  main:
+    name: MCP Tester
+    model: gpt-4.1
+    starterMessages:
+    - What tools do you have available for function calling?
+    instructions: |
+      You are a helpful assistant. You answer as concise as possible. The shorter the better.
+    mcpServers: vibeserver
+
+mcpServers:
+  vibeserver:
+    url: http://localhost:5253/bot
+
+auth:
+  oauthClientId: "nanobot"
+  oauthClientSecret: "secret" # really needed?
+  oauthAuthorizeUrl: "https://localhost:5001/connect/authorize" # really needed?
