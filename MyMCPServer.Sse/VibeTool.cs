@@ -37,18 +37,18 @@ namespace MyMCPServer.Sse
 			return
 			[
 				new TextContentBlock { Text = $"Curious vibes for {name} in {location}." },
-				new EmbeddedResourceBlock
-				{
-					Resource = new BlobResourceContents
-					{
-						MimeType = "image/jpeg",
-						Uri = "https://images.pexels.com/photos/3779448/pexels-photo-3779448.jpeg",
-					},
-					Meta = new JsonObject
-					{
-						["altText"] = $"A man listening.",
-					},
-				},
+				// new EmbeddedResourceBlock //seems to break Claude Desktop
+				// {
+				// 	Resource = new BlobResourceContents
+				// 	{
+				// 		MimeType = "image/jpeg",
+				// 		Uri = "https://images.pexels.com/photos/3779448/pexels-photo-3779448.jpeg",
+				// 	},
+				// 	Meta = new JsonObject
+				// 	{
+				// 		["altText"] = $"A man listening.",
+				// 	},
+				// },
 			];
 		}
 	}

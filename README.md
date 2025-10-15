@@ -105,6 +105,16 @@ set NODE_OPTIONS=--use-system-ca
 npx mcp-remote http://localhost:5253/bot 63113 --static-oauth-client-info "{\"client_id\":\"mcp-remote\"}"
 ```
 
+If `set NODE_OPTIONS=--use-system-ca` does not work anymore (`--use-system-ca is not allowed in NODE_OPTIONS`), consider `$env:NODE_TLS_REJECT_UNAUTHORIZED = "0"`.
+
+Powershell does have an escaping problem, so we best put the oauth data in a separate json file and reference it like this:
+
+```powershell
+npx mcp-remote 'http://localhost:5253/bot' 63113 --static-oauth-client-info "@D:\McpExperiments\MyMCPServer.Sse\mcp-remote-oauth-client-info.json"
+```
+
+In the `claude_desktop_config.json` it looks like this:
+
 ```json
 {
     "mcpServers": {
@@ -115,13 +125,14 @@ npx mcp-remote http://localhost:5253/bot 63113 --static-oauth-client-info "{\"cl
                 "http://localhost:5253/bot",
                 "63113",
                 "--static-oauth-client-info",
-                "{\"client_id\":\"mcp-remote\"}"
+                "@D:\\McpExperiments\\MyMCPServer.Sse\\mcp-remote-oauth-client-info.json"
             ],
             "env": {
                 "NODE_OPTIONS": "--use-system-ca"
             }
         }
-    }
+    },
+    "isUsingBuiltInNodeForMcp": false
 }
 ```
 
@@ -170,6 +181,21 @@ try {
   //...interactive authentication
 }
 ```
+
+I have proposed the fix with [Resource metadata is remembered throughout the entire login flow. #167](https://github.com/geelen/mcp-remote/pull/167). Until this is merged, we can to compile `mcp-remote` locally and set it up like this:
+
+```bash
+git clone https://github.com/halllo/mcp-remote.git
+cd mcp-remote
+git checkout -b remembers_resource_metadata origin/remembers_resource_metadata
+pnpm install
+pnpm build
+npm link #make it available everywhere
+npm list -g --depth=0 #to verify its actually available
+npx mcp-remote #use linked version everywhere
+```
+
+Make sure your Claude Desktop instance does not use its built-in Node.js, but instead uses your operating system's version of Node.js. Under Settings / Extensions / Advanced Settings you should see the same Node.js version that you used when you ran `npm link`.
 
 ## ChatGPT
 
