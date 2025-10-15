@@ -1,13 +1,10 @@
 ﻿using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
-using System.ClientModel;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
-using System.Web;
-using System.Linq;
 using System.Text.Json;
+using System.Web;
 
 
 // Local tool
@@ -23,7 +20,7 @@ var http = new HttpClient();
 //var tokenResponse = await http.GetAsync($"https://localhost:7296/debug_token?userId={Guid.NewGuid()}&userName={"bob"}");
 //var debugtoken = await tokenResponse.Content.ReadFromJsonAsync<string>();
 //http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", debugtoken);
-await using var mcpClient2 = await McpClient.CreateAsync(new HttpClientTransport(new()
+var httpClientTransport = new HttpClientTransport(new()
 {
 	Name = "Vibe MCP Server",
 	Endpoint = new Uri("http://localhost:5253/bot"),
@@ -37,7 +34,12 @@ await using var mcpClient2 = await McpClient.CreateAsync(new HttpClientTransport
 		Scopes = ["openid", "profile", "verification", "notes", "admin", "offline_access"],//the client we registered supports refresh tokens
 		TokenCache = new TokenCacheFile("token_cache.json"),
 	},
-}, http));
+}, http);
+
+//var token = File.Exists("token.json") ? File.ReadAllText("token.json") : null;
+//httpClientTransport.InjectOAuthToken(token);
+await using var mcpClient2 = await McpClient.CreateAsync(httpClientTransport);
+//File.WriteAllText("token.json", httpClientTransport.ExtractOAuthToken());
 
 /// Taken from https://github.com/modelcontextprotocol/csharp-sdk/blob/c0440760ac363d817cbdca87e1ab7eff7e74a025/samples/ProtectedMCPClient/Program.cs#L72
 static async Task<string?> HandleAuthorizationUrlAsync(Uri authorizationUrl, Uri redirectUri, CancellationToken cancellationToken)
