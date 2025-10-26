@@ -10,16 +10,16 @@ public class TokenCacheFile : ITokenCache
         _filePath = filePath;
     }
 
-    public async ValueTask StoreTokenAsync(TokenContainerCacheable token, CancellationToken cancellationToken)
+    public async ValueTask StoreTokensAsync(TokenContainer tokens, CancellationToken cancellationToken)
     {
-        var json = JsonSerializer.Serialize(token);
+        var json = JsonSerializer.Serialize(tokens);
         await File.WriteAllTextAsync(_filePath, json, cancellationToken);
     }
 
-    public async ValueTask<TokenContainerCacheable?> GetTokenAsync(CancellationToken cancellationToken)
+    public async ValueTask<TokenContainer?> GetTokensAsync(CancellationToken cancellationToken)
     {
         var token = File.Exists(_filePath)
-            ? JsonSerializer.Deserialize<TokenContainerCacheable>(await File.ReadAllTextAsync(_filePath, cancellationToken))
+            ? JsonSerializer.Deserialize<TokenContainer>(await File.ReadAllTextAsync(_filePath, cancellationToken))
             : null;
 
         return token;
