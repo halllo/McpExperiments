@@ -1,9 +1,8 @@
-﻿using Microsoft.Extensions.AI;
-using ModelContextProtocol.Client;
+﻿using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
-using System.Text.Json;
 using System.Web;
 
 
@@ -14,6 +13,12 @@ using System.Web;
 // 	Command = @"../../../../MyMCPServer.Stdio/bin/Debug/net9.0/MyMCPServer.Stdio",
 // }));
 
+// Local Dejure
+await using var mcpClient3 = await McpClient.CreateAsync(new StdioClientTransport(new()
+{
+	Name = "Dejure Stdio MCP Server",
+	Command = @"D:\DejureMcp\DejureMcp.Stdio\bin\Debug\net9.0\DejureMcp.Stdio.exe",
+}));
 
 // Remote tool
 var http = new HttpClient();
@@ -38,7 +43,7 @@ var httpClientTransport = new HttpClientTransport(new()
 
 //var token = File.Exists("token.json") ? File.ReadAllText("token.json") : null;
 //httpClientTransport.InjectOAuthToken(token);
-await using var mcpClient2 = await McpClient.CreateAsync(httpClientTransport);
+//await using var mcpClient2 = await McpClient.CreateAsync(httpClientTransport);
 //File.WriteAllText("token.json", httpClientTransport.ExtractOAuthToken());
 
 /// Taken from https://github.com/modelcontextprotocol/csharp-sdk/blob/c0440760ac363d817cbdca87e1ab7eff7e74a025/samples/ProtectedMCPClient/Program.cs#L72
@@ -116,19 +121,49 @@ static async Task<string?> HandleAuthorizationUrlAsync(Uri authorizationUrl, Uri
 	}
 }
 
-var mcpClients = new[] { /*mcpClient1,*/ mcpClient2 };
+var mcpClients = new[] { /*mcpClient1, mcpClient2*/ mcpClient3 };
 var mcpTools = await mcpClients.ToAsyncEnumerable().SelectManyAwait(async c => (await c.ListToolsAsync()).ToAsyncEnumerable()).ToListAsync();
+Console.WriteLine();
 Console.WriteLine("Available MCP tools:");
 foreach (var tool in mcpTools)
 {
 	Console.WriteLine($"- {tool}");
 }
 
-Console.WriteLine("Invoking...");
-var invoked =
-	//await mcpTools.First(t => t.Name == "echo").InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?> { { "message", "Karlsruhe" } }));;
-	await mcpTools.First(t => t.Name == "get_vibe").InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?> { { "location", "Karlsruhe" } }));
-Console.WriteLine(JsonSerializer.Serialize(invoked, new JsonSerializerOptions { WriteIndented = true }));
+Console.WriteLine();
+Console.WriteLine("Available MCP resources:");
+await foreach (var resource in mcpClients
+	.ToAsyncEnumerable()
+	.SelectManyAwait(async c =>
+	{
+		var rs = await c.ListResourcesAsync();
+		return rs
+			.ToAsyncEnumerable()
+			.SelectAwait(async r => new
+			{
+				uri = r.Uri,
+				content = await c.ReadResourceAsync(r.Uri)
+			});
+	}))
+{
+	Console.WriteLine($"- {resource.uri}");
+	Console.WriteLine($"\t{resource.content.Contents.OfType<TextResourceContents>().Single().Text}");
+}
+
+Console.WriteLine();
+Console.WriteLine("Available MCP resource templates:");
+await foreach (var resourceTemplate in mcpClients
+	.ToAsyncEnumerable()
+	.SelectManyAwait(async c => (await c.ListResourceTemplatesAsync()).ToAsyncEnumerable()))
+{
+	Console.WriteLine($"- {resourceTemplate.UriTemplate}");
+}
+
+//Console.WriteLine("Invoking...");
+//var invoked =
+//	//await mcpTools.First(t => t.Name == "echo").InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?> { { "message", "Karlsruhe" } }));;
+//	await mcpTools.First(t => t.Name == "get_vibe").InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?> { { "location", "Karlsruhe" } }));
+//Console.WriteLine(JsonSerializer.Serialize(invoked, new JsonSerializerOptions { WriteIndented = true }));
 //todo: how to return additional contents?
 
 
