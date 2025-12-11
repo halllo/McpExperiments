@@ -124,7 +124,7 @@ static async Task<string?> HandleAuthorizationUrlAsync(Uri authorizationUrl, Uri
 	}
 }
 
-var mcpClients = new[] { /*mcpClient1,*/ mcpClient2 };
+var mcpClients = new[] { /*mcpClient1, mcpClient2,*/ mcpClient3 };
 var mcpTools = await mcpClients.ToAsyncEnumerable()
 	.SelectMany(async (client, cancel) => (await client.ListToolsAsync(cancellationToken: cancel)).AsEnumerable())
 	.ToListAsync();
