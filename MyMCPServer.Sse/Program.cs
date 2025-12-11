@@ -61,7 +61,7 @@ builder.Services.AddMcpServer(o =>
 
 				return ValueTask.FromResult(new CallToolResult
 				{
-					Content = [new TextContentBlock { Text = $"Echo: {message}", Type = "text" }]
+					Content = [new TextContentBlock { Text = $"Echo: {message}" }]
 				});
 			}
 

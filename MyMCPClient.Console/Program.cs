@@ -4,6 +4,9 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Web;
+using System.Linq;
+using System.Text.Json;
+using OpenAI.Responses;
 
 
 // Local tool
@@ -121,9 +124,10 @@ static async Task<string?> HandleAuthorizationUrlAsync(Uri authorizationUrl, Uri
 	}
 }
 
-var mcpClients = new[] { /*mcpClient1, mcpClient2*/ mcpClient3 };
-var mcpTools = await mcpClients.ToAsyncEnumerable().SelectManyAwait(async c => (await c.ListToolsAsync()).ToAsyncEnumerable()).ToListAsync();
-Console.WriteLine();
+var mcpClients = new[] { /*mcpClient1,*/ mcpClient2 };
+var mcpTools = await mcpClients.ToAsyncEnumerable()
+	.SelectMany(async (client, cancel) => (await client.ListToolsAsync(cancellationToken: cancel)).AsEnumerable())
+	.ToListAsync();
 Console.WriteLine("Available MCP tools:");
 foreach (var tool in mcpTools)
 {

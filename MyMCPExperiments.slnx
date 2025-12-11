@@ -1,0 +1,13 @@
+<Solution>
+  <Project Path="../mcp-csharp-sdk/src/ModelContextProtocol.AspNetCore/ModelContextProtocol.AspNetCore.csproj" />
+  <Project Path="../mcp-csharp-sdk/src/ModelContextProtocol.Core/ModelContextProtocol.Core.csproj" />
+  <Project Path="../mcp-csharp-sdk/src/ModelContextProtocol/ModelContextProtocol.csproj" />
+  <Project Path="MyMCPClient.Console/MyMCPClient.Console.csproj" />
+  <Project Path="MyMCPClient.Web/MyMCPClient.Web.csproj" />
+  <Project Path="MyMCPServer.Sse/MyMCPServer.Sse.csproj" />
+  <Project Path="MyMCPServer.Stdio.Cli/MyMCPServer.Stdio.Cli.csproj" />
+  <Project Path="MyMCPServer.Stdio/MyMCPServer.Stdio.csproj" />
+  <Project Path="OAuthClient.Desktop/OAuthClient.Desktop.csproj" />
+  <Project Path="OAuthClient.Web/OAuthClient.Web.csproj" />
+  <Project Path="OAuthServer/OAuthServer.csproj" />
+</Solution>

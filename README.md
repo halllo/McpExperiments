@@ -1,12 +1,6 @@
 # MCP Experiments
 
-These MCP experiments are based on Laurent Kempé's [tutorial](https://laurentkempe.com/2025/03/22/model-context-protocol-made-easy-building-an-mcp-server-in-csharp/).
-
-There is a dotnet MCP server over stdio that provides a function to return the current time.
-
-There is a dotnet MCP client that makes it available to a local LLM which invokes it.
-
-It uses the official [mcp-csharp-sdk](https://github.com/modelcontextprotocol/csharp-sdk).
+These MCP experiments are a playground for better understanding the technology.
 
 ## Develop
 
@@ -25,8 +19,6 @@ dotnet run --project MyMCPServer.Sse --launch-profile https
 ## Authorization
 
 Web-based MCP servers using SSE or streamable HTTP should require authorization.
-
-Microsoft [plans to implement all specified authentication protocols described in the MCP spec](https://devblogs.microsoft.com/blog/microsoft-partners-with-anthropic-to-create-official-c-sdk-for-model-context-protocol?commentid=47#comment-47), but there is no roadmap yet.
 
 In this repository I am experimenting with differnt kinds of authentication and authorization for MCP servers. To test it, we can use the _mcp inspector_ and the browser developer tools.
 
@@ -69,7 +61,7 @@ As next steps I need to look into MCP inspector to better understand if it could
 
 When the returned WWW-Authenticate contains `Bearer realm="McpAuth", resource_metadata="http://localhost:5253/bot/.well-known/oauth-protected-resource"`, MCP inspector should immediately acquire the protected resource metadata from <http://localhost:5253/bot/.well-known/oauth-protected-resource>. If no `resource_metadata` is provided, then it may fall back to trying permutations.
 
-## Claude Desktop
+### Claude Desktop
 
 To install local MCP servers (stdio) in [Claude Desktop](https://claude.ai/download), we can easily add them to the `claude_desktop_config.json` like this:
 
@@ -89,9 +81,11 @@ To install local MCP servers (stdio) in [Claude Desktop](https://claude.ai/downl
 }
 ```
 
-Claude Desktop supports remote MCP servers as "Connectors" ([Building Remote MCP Servers](https://support.anthropic.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers)), but adding custom ones only on Pro/Max or Enterprise/Team plans ([Getting Started with Custom Connectors Using Remote MCP](https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp)).
+~~Claude Desktop supports remote MCP servers as "Connectors" ([Building Remote MCP Servers](https://support.anthropic.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers)), but adding custom ones only on Pro/Max or Enterprise/Team plans ([Getting Started with Custom Connectors Using Remote MCP](https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp)).~~
 
-Custom OAuth `client_id` are currently only available for Claude for Work. For non-work accounts it requires DCR. A localhost hosted MCP server can be added, but "connecting" it does not seem to work: Claude Desktop just opens Claude Web but does not actually do anything and Claude Web just reloads the page.
+~~Custom OAuth `client_id` are currently only available for Claude for Work. For non-work accounts it requires DCR. A localhost hosted MCP server can be added, but "connecting" it does not seem to work: Claude Desktop just opens Claude Web but does not actually do anything and Claude Web just reloads the page.~~
+
+Custom connectors as remote MCP servers can also be added, with a OAuth ClientId & Secret. However custom connectors try to do auth at /authorize, not at at the authorize endpoint configured in the metadata of the authorization server configured in the protected resource metadata of the MCP server.
 
 We can use [mcp-remote](https://www.npmjs.com/package/mcp-remote) for that. By default it uses _Dynamic Client Registration_ and stores its client credentials in `~\.mcp-auth`. But we can provide static oauth metadata:
 
@@ -197,13 +191,28 @@ npx mcp-remote #use linked version everywhere
 
 Make sure your Claude Desktop instance does not use its built-in Node.js, but instead uses your operating system's version of Node.js. Under Settings / Extensions / Advanced Settings you should see the same Node.js version that you used when you ran `npm link`.
 
-## ChatGPT
+I have proposed the fix with [Resource metadata is remembered throughout the entire login flow. #167](https://github.com/geelen/mcp-remote/pull/167). Until this is merged, we can to compile `mcp-remote` locally and set it up like this:
+
+```bash
+git clone https://github.com/halllo/mcp-remote.git
+cd mcp-remote
+git checkout -b remembers_resource_metadata origin/remembers_resource_metadata
+pnpm install
+pnpm build
+npm link #make it available everywhere
+npm list -g --depth=0 #to verify its actually available
+npx mcp-remote #use linked version everywhere
+```
+
+Make sure your Claude Desktop instance does not use its built-in Node.js, but instead uses your operating system's version of Node.js. Under Settings / Extensions / Advanced Settings you should see the same Node.js version that you used when you ran `npm link`.
+
+### ChatGPT
 
 MCP support requires ChatGPT Plus. Then users can enable "Developer mode" (which is still in BETA) and create a new connector. Custom OAuth `client_id` is not supported.
 
 Adding a localhost hosted MCP server only resulted in "Error fetching OAuth configuration".
 
-## Nanobot
+### Nanobot
 
 To better test the MCP servers of this project, we can use a local MCP host like [nanobot](https://www.nanobot.ai). It seems to support OAuth and mcp-ui.
 
@@ -218,6 +227,30 @@ However nanobot still fails with a weird error:
 
 ```log
 failed to setup auth: failed to create oauth proxy: invalid mode: middleware
+```
+
+## UI & Apps
+
+There is an extension of MCP for UI and Apps:
+
+<https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/draft/apps.mdx>
+
+<https://modelcontextprotocol.github.io/ext-apps/api/documents/Quickstart.html>
+
+It is based on MCP-UI:
+
+<https://mcpui.dev/guide/mcp-apps>
+
+<https://github.com/MCP-UI-Org/mcp-ui/blob/main/examples/mcp-apps-demo/src/index.ts>
+
+And Open AI's apps:
+
+<https://docs.mcpjam.com/contributing/openai-sdk-architecture>
+
+To test this, we can use
+
+```bash
+npx @mcpjam/inspector@latest
 ```
 
 ## Resources

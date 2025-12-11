@@ -37,7 +37,7 @@ namespace MyMCPServer.Sse
 			return
 			[
 				new TextContentBlock { Text = $"Curious vibes for {name} in {location}." },
-				// new EmbeddedResourceBlock //seems to break Claude Desktop
+				// new EmbeddedResourceBlock
 				// {
 				// 	Resource = new BlobResourceContents
 				// 	{
