@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flight Card Demo</title>
+</head>
+
+<body>
+  <h1>Flight Card Demo</h1>
+  <h2>Status: <span id="status" class="status-badge disconnected">Disconnected</span></h2>
+  <div class="subtitle">This demo showcases a flight information card using MCP Apps Adapter.</div>
+
+  <script>
+    // Signal ready state
+    log('Sending ready signal...', 'info');
+    window.parent.postMessage({ type: 'ui-lifecycle-iframe-ready' }, '*');
+  </script>
+</body>
+
+</html>

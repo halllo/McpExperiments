@@ -17,7 +17,7 @@ async function waitForServerReady(url, { timeoutMs = 8000 } = {}) {
 	while (Date.now() < deadline) {
 		try {
 			const res = await fetch(url, { method: "GET" });
-			if (res.status === 405) return;
+			if (res.ok) return;
 		} catch {
 			// ignore connection errors while the server boots
 		}
@@ -28,7 +28,8 @@ async function waitForServerReady(url, { timeoutMs = 8000 } = {}) {
 
 async function withServer(fn) {
 	const cwd = __dirname;
-	const serverUrl = "http://localhost:3000/mcp";
+	const serverUrl = "http://127.0.0.1:3000/mcp";
+	const healthUrl = "http://127.0.0.1:3000/healthz";
 	const entrypoint = path.join(__dirname, "index.mjs");
 	const proc = spawn(process.execPath, [entrypoint], {
 		cwd,
@@ -42,7 +43,7 @@ async function withServer(fn) {
 	});
 
 	try {
-		await waitForServerReady(serverUrl);
+		await waitForServerReady(healthUrl);
 		return await fn(serverUrl);
 	} catch (err) {
 		throw new Error(`${err instanceof Error ? err.message : String(err)}\n\nServer stderr:\n${stderr}`);
