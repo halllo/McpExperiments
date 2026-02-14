@@ -4,9 +4,9 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Web;
-using System.Linq;
 using System.Text.Json;
-using OpenAI.Responses;
+using Microsoft.IdentityModel.JsonWebTokens;
+using System.Text.RegularExpressions;
 
 
 // Local tool
@@ -17,17 +17,18 @@ using OpenAI.Responses;
 // }));
 
 // Local Dejure
-await using var mcpClient3 = await McpClient.CreateAsync(new StdioClientTransport(new()
-{
-	Name = "Dejure Stdio MCP Server",
-	Command = @"D:\DejureMcp\DejureMcp.Stdio\bin\Debug\net9.0\DejureMcp.Stdio.exe",
-}));
+// await using var mcpClient3 = await McpClient.CreateAsync(new StdioClientTransport(new()
+// {
+// 	Name = "Dejure Stdio MCP Server",
+// 	Command = @"D:\DejureMcp\DejureMcp.Stdio\bin\Debug\net9.0\DejureMcp.Stdio.exe",
+// }));
 
 // Remote tool
 var http = new HttpClient();
 //var tokenResponse = await http.GetAsync($"https://localhost:7296/debug_token?userId={Guid.NewGuid()}&userName={"bob"}");
 //var debugtoken = await tokenResponse.Content.ReadFromJsonAsync<string>();
 //http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", debugtoken);
+var tokenCache = new TokenCacheFile("token_cache.json");
 var httpClientTransport = new HttpClientTransport(new()
 {
 	Name = "Vibe MCP Server",
@@ -37,23 +38,33 @@ var httpClientTransport = new HttpClientTransport(new()
 	{
 		ClientId = "mcp_console",
 		//ClientName = $"ProtectedMcpClient_{DateTime.Now:yyyyMMddHHmmss}", //we already have a client_id and dont need dynamic client registration
+		//Scopes = ["openid", "profile", "verification", "notes", "admin", "offline_access"],//the client we registered supports refresh tokens
 		RedirectUri = new Uri("http://localhost:1179/callback"),
 		AuthorizationRedirectDelegate = HandleAuthorizationUrlAsync,
-		Scopes = ["openid", "profile", "verification", "notes", "admin", "offline_access"],//the client we registered supports refresh tokens
-		TokenCache = new TokenCacheFile("token_cache.json"),
+		TokenCache = tokenCache,
 	},
 }, http);
 
-//var token = File.Exists("token.json") ? File.ReadAllText("token.json") : null;
-//httpClientTransport.InjectOAuthToken(token);
-//await using var mcpClient2 = await McpClient.CreateAsync(httpClientTransport);
-//File.WriteAllText("token.json", httpClientTransport.ExtractOAuthToken());
+await using var mcpClient2 = await McpClient.CreateAsync(httpClientTransport);
+var token = await tokenCache.GetTokensAsync(CancellationToken.None);
+var jwtTokenHandler = new JsonWebTokenHandler();
+var jwt = jwtTokenHandler.ReadJsonWebToken(token?.AccessToken ?? string.Empty);
+Console.WriteLine("Authenticated:");
+Console.WriteLine(JsonSerializer.Serialize(jwt.Claims.Select(c => new { c.Type, c.Value }), new JsonSerializerOptions { WriteIndented = true }));
+
 
 /// Taken from https://github.com/modelcontextprotocol/csharp-sdk/blob/c0440760ac363d817cbdca87e1ab7eff7e74a025/samples/ProtectedMCPClient/Program.cs#L72
 static async Task<string?> HandleAuthorizationUrlAsync(Uri authorizationUrl, Uri redirectUri, CancellationToken cancellationToken)
 {
+	Console.WriteLine($"Original auth URL: {authorizationUrl}");
+	static string[] adjustScopes(string[] scopes) => [.. scopes, "offline_access"];
+	var newAuthUrl = new Uri(Regex.Replace(authorizationUrl.ToString(), @"(?<=&scope=)(?<scopes>[^&]+)", m =>
+	{
+		var scopes = m.Groups["scopes"].Value;
+		return string.Join('+', adjustScopes(scopes.Split('+')));
+	}));
 	Console.WriteLine("Starting OAuth authorization flow...");
-	Console.WriteLine($"Opening browser to: {authorizationUrl}");
+	Console.WriteLine($"Opening browser to: {newAuthUrl}");
 
 	var listenerPrefix = redirectUri.GetLeftPart(UriPartial.Authority);
 	if (!listenerPrefix.EndsWith("/")) listenerPrefix += "/";
@@ -66,7 +77,7 @@ static async Task<string?> HandleAuthorizationUrlAsync(Uri authorizationUrl, Uri
 		listener.Start();
 		Console.WriteLine($"Listening for OAuth callback on: {listenerPrefix}");
 
-		OpenBrowser(authorizationUrl);
+		OpenBrowser(newAuthUrl);
 
 		var context = await listener.GetContextAsync();
 		var query = HttpUtility.ParseQueryString(context.Request.Url?.Query ?? string.Empty);
@@ -124,44 +135,84 @@ static async Task<string?> HandleAuthorizationUrlAsync(Uri authorizationUrl, Uri
 	}
 }
 
-var mcpClients = new[] { /*mcpClient1, mcpClient2,*/ mcpClient3 };
-var mcpTools = await mcpClients.ToAsyncEnumerable()
-	.SelectMany(async (client, cancel) => (await client.ListToolsAsync(cancellationToken: cancel)).AsEnumerable())
-	.ToListAsync();
-Console.WriteLine("Available MCP tools:");
-foreach (var tool in mcpTools)
-{
-	Console.WriteLine($"- {tool}");
-}
+var mcpClients = new[] { /*mcpClient1,*/ mcpClient2,/* mcpClient3 */ };
 
-Console.WriteLine();
-Console.WriteLine("Available MCP resources:");
-await foreach (var resource in mcpClients
-	.ToAsyncEnumerable()
-	.SelectManyAwait(async c =>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+try
+{
+	Console.WriteLine();
+	Console.WriteLine("Available MCP tools:");
+	var mcpTools = mcpClients
+		.ToAsyncEnumerable()
+		.SelectMany(async (client, cancel) => (await client.ListToolsAsync(cancellationToken: cancel)).AsEnumerable());
+	await foreach (var tool in mcpTools)
 	{
-		var rs = await c.ListResourcesAsync();
-		return rs
-			.ToAsyncEnumerable()
-			.SelectAwait(async r => new
-			{
-				uri = r.Uri,
-				content = await c.ReadResourceAsync(r.Uri)
-			});
-	}))
+		Console.WriteLine($"- {tool}");
+	}
+}
+catch (Exception ex)
 {
-	Console.WriteLine($"- {resource.uri}");
-	Console.WriteLine($"\t{resource.content.Contents.OfType<TextResourceContents>().Single().Text}");
+	Console.WriteLine($"Error connecting to MCP server: {ex.Message}");
 }
 
-Console.WriteLine();
-Console.WriteLine("Available MCP resource templates:");
-await foreach (var resourceTemplate in mcpClients
-	.ToAsyncEnumerable()
-	.SelectManyAwait(async c => (await c.ListResourceTemplatesAsync()).ToAsyncEnumerable()))
+try
 {
-	Console.WriteLine($"- {resourceTemplate.UriTemplate}");
+	Console.WriteLine();
+	Console.WriteLine("Available MCP resources:");
+	var mcpResources = mcpClients
+		.ToAsyncEnumerable()
+		.SelectMany(async (client, cancel) =>
+		{
+			var rs = await client.ListResourcesAsync(cancellationToken: cancel);
+			return rs.Select(r => new { client, uri = r.Uri });
+		})
+		.Select(async (resource, cancel) =>
+		{
+			var content = await resource.client.ReadResourceAsync(resource.uri, cancellationToken: cancel);
+			return new { resource.uri, content };
+		});
+	await foreach (var resource in mcpResources)
+	{
+		Console.WriteLine($"- {resource.uri}");
+		Console.WriteLine($"\t{resource.content.Contents.OfType<TextResourceContents>().Single().Text}");
+	}
 }
+catch (Exception ex)
+{
+	Console.WriteLine($"Error getting resources: {ex.Message}");
+}
+
+try
+{
+	Console.WriteLine();
+	Console.WriteLine("Available MCP resource templates:");
+	var mcpResourceTemplates = mcpClients
+		.ToAsyncEnumerable()
+		.SelectMany(async (client, cancel) => (await client.ListResourceTemplatesAsync(cancellationToken: cancel)).AsEnumerable());
+	await foreach (var resourceTemplate in mcpResourceTemplates)
+	{
+		Console.WriteLine($"- {resourceTemplate.UriTemplate}");
+	}
+}
+catch (Exception ex)
+{
+	Console.WriteLine($"Error getting resource templates: {ex.Message}");
+}
+
+
 
 //Console.WriteLine("Invoking...");
 //var invoked =
