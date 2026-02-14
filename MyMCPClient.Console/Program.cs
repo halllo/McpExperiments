@@ -61,7 +61,7 @@ static async Task<string?> HandleAuthorizationUrlAsync(Uri authorizationUrl, Uri
 	var newAuthUrl = new Uri(Regex.Replace(authorizationUrl.ToString(), @"(?<=&scope=)(?<scopes>[^&]+)", m =>
 	{
 		var scopes = m.Groups["scopes"].Value;
-		return string.Join('+', adjustScopes(scopes.Split('+')));
+		return string.Join('+', adjustScopes(scopes.Split('+', StringSplitOptions.RemoveEmptyEntries)));
 	}));
 	Console.WriteLine("Starting OAuth authorization flow...");
 	Console.WriteLine($"Opening browser to: {newAuthUrl}");
