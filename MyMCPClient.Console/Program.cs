@@ -54,15 +54,19 @@ Console.WriteLine(JsonSerializer.Serialize(jwt.Claims.Select(c => new { c.Type, 
 
 
 /// Taken from https://github.com/modelcontextprotocol/csharp-sdk/blob/c0440760ac363d817cbdca87e1ab7eff7e74a025/samples/ProtectedMCPClient/Program.cs#L72
-static async Task<string?> HandleAuthorizationUrlAsync(Uri authorizationUrl, Uri redirectUri, CancellationToken cancellationToken)
+static async Task<string?> HandleAuthorizationUrlAsync(Uri authUrl, Uri redirectUri, CancellationToken cancellationToken)
 {
-	// Scope manipulation, because ClientOAuthProvider.Scopes no longer has priority (https://github.com/modelcontextprotocol/csharp-sdk/pull/1238)
-	static string[] adjustScopes(string[] scopes) => [.. scopes, "offline_access"];
-	var newAuthUrl = new Uri(Regex.Replace(authorizationUrl.ToString(), @"(?<=&scope=)(?<scopes>[^&]+)", m =>
+	static Uri changeScopes(Uri url, Func<string[], string[]> adjustScopes)
 	{
-		var scopes = m.Groups["scopes"].Value;
-		return string.Join('+', adjustScopes(scopes.Split('+', StringSplitOptions.RemoveEmptyEntries)));
-	}));
+		return new Uri(Regex.Replace(url.ToString(), @"(?<=&scope=)(?<scopes>[^&]+)", m =>
+		{
+			var scopes = m.Groups["scopes"].Value;
+			return string.Join('+', adjustScopes(scopes.Split('+', StringSplitOptions.RemoveEmptyEntries)));
+		}));
+	}
+
+	// Scope manipulation, because ClientOAuthProvider.Scopes no longer has priority (https://github.com/modelcontextprotocol/csharp-sdk/pull/1238)
+	var newAuthUrl = changeScopes(authUrl, scopes => [.. scopes, "offline_access"]);
 	Console.WriteLine($"Starting OAuth authorization flow at {newAuthUrl}");
 
 	var listenerPrefix = redirectUri.GetLeftPart(UriPartial.Authority);
