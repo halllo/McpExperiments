@@ -1,24 +1,33 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Identity Server is pinned to port 5001 so its issuer URI is stable and
-// matches what MyMCPServer.Sse uses as a JWT audience/authority.
-// Port 5001 is pinned in IdentityServer/Properties/launchSettings.json so the issuer URI is stable.
 var identityServer = builder.AddProject<Projects.IdentityServer>("identity-server");
 
-var mcpServer = builder.AddProject<Projects.MyMCPServer_Sse>("mcp-server")
+var myMcpServer = builder.AddProject<Projects.MyMCPServer_Sse>("my-mcp-server")
     .WithReference(identityServer)
     .WaitFor(identityServer);
 
-builder.AddProject<Projects.MyMCPClient_Web>("mcp-web-client")
+var myMcpWebClient = builder.AddProject<Projects.MyMCPClient_Web>("my-mcp-web-client")
     .WithReference(identityServer)
-    .WithReference(mcpServer)
+    .WithReference(myMcpServer)
     .WaitFor(identityServer)
-    .WaitFor(mcpServer);
+    .WaitFor(myMcpServer);
 
-builder.AddProject<Projects.MyAgent>("agent")
+var myAgent = builder.AddProject<Projects.MyAgent>("my-agent")
     .WithReference(identityServer)
-    .WithReference(mcpServer)
+    .WithReference(myMcpServer)
     .WaitFor(identityServer)
-    .WaitFor(mcpServer);
+    .WaitFor(myMcpServer);
+
+var gateway = builder.AddYarp("Gateway")
+   .WithHostHttpsPort(8443)
+   .WithHostPort(8080)
+   .WithStaticFiles("../wwwroot")
+   .WithConfiguration(yarp =>
+   {
+       yarp.AddRoute("/identity/{**catch-all}", identityServer);
+       yarp.AddRoute("/my-mcp-server/{**catch-all}", myMcpServer);
+       yarp.AddRoute("/my-mcp-web-client/{**catch-all}", myMcpWebClient);
+       yarp.AddRoute("/my-agent/{**catch-all}", myAgent);
+   });
 
 builder.Build().Run();

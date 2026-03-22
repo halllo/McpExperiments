@@ -5,12 +5,13 @@
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,
-      "applicationUrl": "https://localhost:17240",
+      "applicationUrl": "https://mcpexperiments.dev.localhost:17240",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DOTNET_ENVIRONMENT": "Development",
-        "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "https://localhost:21240",
-        "DOTNET_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:22240"
+        "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "https://mcpexperiments.dev.localhost:21240",
+        "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "https://mcpexperiments.dev.localhost:22240",
+        "ASPIRE_CONTAINER_RUNTIME": "podman"
       }
     }
   }
