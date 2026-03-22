@@ -11,8 +11,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-var identityServerUrl = builder.Configuration["services__identity-server__https__0"];
-var mcpServerUrl = builder.Configuration["services__mcp-server__https__0"];
+var identityServerUrl = builder.Configuration["services:identity-server:https:0"];
+var mcpServerUrl = builder.Configuration["services:mcp-server:https:0"];
 
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();

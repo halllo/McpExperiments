@@ -9,7 +9,7 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
-var identityServerUrl = builder.Configuration["services__identity-server__https__0"];//why does this not work?
+var identityServerUrl = builder.Configuration["services:identity-server:https:0"];
 
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
@@ -86,9 +86,24 @@ builder.Services.AddAuthentication(config =>
 	.AddJwtBearer(options =>
 	{
 		options.Authority = identityServerUrl;
-		options.Audience = "mcp-server";
+		options.Audience = "https://localhost:7296/mcp";
 		options.MapInboundClaims = false;//keep claim types as they are, do not map to Microsoft-specific claim types. this is important for MCP authentication to work, as it looks for specific claim types in the token.
 		options.ForwardChallenge = McpAuthenticationDefaults.AuthenticationScheme;
+		options.Events = new JwtBearerEvents
+		{
+			OnAuthenticationFailed = context =>
+			{
+				var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("JwtBearerEvents");
+				logger.LogError(context.Exception, "Authentication failed with exception");
+				return Task.CompletedTask;
+			},
+			OnForbidden = context =>
+			{
+				var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("JwtBearerEvents");
+				logger.LogWarning("Forbidden request: {path}", context.HttpContext.Request.Path);
+				return Task.CompletedTask;
+			}
+		};
 	})
 	.AddMcp(options =>
 	{
