@@ -8,6 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.BedrockAgentCore" Version="4.0.13" />
+    <PackageReference Include="AWSSDK.BedrockAgentCoreControl" Version="4.0.22" />
     <PackageReference Include="AWSSDK.Extensions.Bedrock.MEAI" Version="4.0.6.2" />
     <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-rc4" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.4.1" />

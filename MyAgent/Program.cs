@@ -1,3 +1,5 @@
+using Amazon.BedrockAgentCore;
+using Amazon.BedrockAgentCore.Model;
 using Amazon.BedrockRuntime;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.DevUI;
@@ -14,13 +16,22 @@ builder.Services.AddDevUI();
 builder.Services.AddOpenAIResponses();
 builder.Services.AddOpenAIConversations();
 
-var openai = builder.AddAIAgent("openai", (sp , key) => CreateAgent(
+builder.Services.AddSingleton<IAmazonBedrockAgentCore>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    return new AmazonBedrockAgentCoreClient(
+        awsAccessKeyId: configuration["AWSBedrockAccessKeyId"],
+        awsSecretAccessKey: configuration["AWSBedrockSecretAccessKey"],
+        region: Amazon.RegionEndpoint.GetBySystemName(configuration["AWSBedrockRegion"]));
+});
+
+var openai = builder.AddAIAgent("openai", (sp, key) => CreateAgent(
     name: key,
     chatClient: OpenAI(sp.GetRequiredService<IConfiguration>(), sp),
     tools: Array.Empty<AIFunction>(),
     services: sp));
-    
-var amazonbedrock = builder.AddAIAgent("amazonbedrock", (sp , key) => CreateAgent(
+
+var amazonbedrock = builder.AddAIAgent("amazonbedrock", (sp, key) => CreateAgent(
     name: key,
     chatClient: AmazonBedrock(sp.GetRequiredService<IConfiguration>(), sp),
     tools: Array.Empty<AIFunction>(),
@@ -33,6 +44,24 @@ app.MapScalarApiReference();
 app.MapDevUI();
 app.MapOpenAIResponses();
 app.MapOpenAIConversations();
+
+app.Map("/execute", async (IAmazonBedrockAgentCore agentCore, ILogger<Program> logger) =>
+{
+    try
+    {
+        var result = await ExecuteCode(agentCore, logger,
+            pythonCode: """
+                        import math
+                        result = [math.factorial(i) for i in range(10)]
+                        print(result)
+                        """);
+        return Results.Ok(result);
+    }
+    catch (Exception)
+    {
+        return Results.Problem("An error occurred while executing the code.");
+    }
+});
 
 app.Run();
 
@@ -79,4 +108,66 @@ static AIAgent CreateAgent(string name, IChatClient chatClient, AIFunction[] too
         .AsBuilder()
         .UseOpenTelemetry(sourceName: applicationName, configure: c => c.EnableSensitiveData = true)
         .Build(services);
+}
+
+static async Task<string> ExecuteCode(IAmazonBedrockAgentCore agentCore, ILogger<Program> logger, string pythonCode)
+{
+    var codeInterpreterId = "aws.codeinterpreter.v1";
+    var session = await agentCore.StartCodeInterpreterSessionAsync(new StartCodeInterpreterSessionRequest
+    {
+        CodeInterpreterIdentifier = codeInterpreterId,
+        Name = "TestSession1",
+        SessionTimeoutSeconds = 900 // 15 minutes
+    });
+    var sessionId = session.SessionId;
+    logger.LogInformation("Started code interpreter session with ID: {SessionId}", sessionId);
+
+    try
+    {
+        var response = await agentCore.InvokeCodeInterpreterAsync(new InvokeCodeInterpreterRequest
+        {
+            CodeInterpreterIdentifier = codeInterpreterId,
+            SessionId = sessionId,
+            Name = ToolName.ExecuteCode,
+            Arguments = new ToolArguments
+            {
+                Language = "python",
+                Code = pythonCode,
+            }
+        });
+
+        var result = string.Empty;
+        await foreach (var message in response.Stream)
+        {
+            if (message is CodeInterpreterResult resultMessage)
+            {
+                logger.LogInformation("Code interpreter result");
+                foreach (var content in resultMessage.Content)
+                {
+                    logger.LogInformation("Output type: {Type}, content: {Content}", content.Type, content.Text);
+                    result += content.Text;
+                }
+            }
+            else
+            {
+                var type = message.GetType().Name;
+                logger.LogInformation("Received message from code interpreter: {Content}", type);
+            }
+        }
+        return result;
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error invoking code interpreter");
+        throw;
+    }
+    finally
+    {
+        await agentCore.StopCodeInterpreterSessionAsync(new StopCodeInterpreterSessionRequest
+        {
+            CodeInterpreterIdentifier = codeInterpreterId,
+            SessionId = sessionId
+        });
+        logger.LogInformation("Ended code interpreter session with ID: {SessionId}", sessionId);
+    }
 }
