@@ -32,7 +32,7 @@ var tokenCache = new TokenCacheFile("token_cache.json");
 var httpClientTransport = new HttpClientTransport(new()
 {
 	Name = "Vibe MCP Server",
-	Endpoint = new Uri("http://localhost:5253/bot"),
+	Endpoint = new Uri("https://localhost:7296/mcp"),
 	TransportMode = HttpTransportMode.StreamableHttp,
 	OAuth = new()
 	{

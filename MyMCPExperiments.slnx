@@ -9,4 +9,5 @@
   <Project Path="MyMCPServer.Sse/MyMCPServer.Sse.csproj" />
   <Project Path="MyMCPServer.Stdio.Cli/MyMCPServer.Stdio.Cli.csproj" />
   <Project Path="MyMCPServer.Stdio/MyMCPServer.Stdio.csproj" />
+  <Project Path="MyAgent/MyAgent.csproj" />
 </Solution>

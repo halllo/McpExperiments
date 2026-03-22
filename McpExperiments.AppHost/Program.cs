@@ -15,4 +15,10 @@ builder.AddProject<Projects.MyMCPClient_Web>("mcp-web-client")
     .WaitFor(identityServer)
     .WaitFor(mcpServer);
 
+builder.AddProject<Projects.MyAgent>("agent")
+    .WithReference(identityServer)
+    .WithReference(mcpServer)
+    .WaitFor(identityServer)
+    .WaitFor(mcpServer);
+
 builder.Build().Run();

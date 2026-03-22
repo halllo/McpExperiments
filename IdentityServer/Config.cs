@@ -13,6 +13,11 @@ public static class Config
         new IdentityResource("verification", "Email verification", ["email_verified"]),
     ];
 
+    public static IEnumerable<ApiResource> ApiResources =>
+    [
+        new ApiResource("https://localhost:7296/mcp") { Scopes = ["notes", "admin"] },
+    ];
+
     public static IEnumerable<ApiScope> ApiScopes =>
     [
         new ApiScope("notes"),
@@ -39,6 +44,16 @@ public static class Config
                 "https://localhost:7208/signout-callback-oidc",
             },
             AllowedScopes = { "openid", "profile", "verification", "notes", "admin" },
+            AllowOfflineAccess = true,
+        },
+        new Client
+        {
+            ClientId = "mcp_console",
+            AllowedGrantTypes = GrantTypes.Code,
+            RedirectUris = { "http://localhost:1179/callback" },
+            AllowedScopes = { "openid", "profile", "verification", "notes", "admin" },
+            RequireClientSecret = false,
+            RequirePkce = true,
             AllowOfflineAccess = true,
         },
     ];

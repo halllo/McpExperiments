@@ -10,7 +10,13 @@
       "Bash(dotnet build:*)",
       "Bash(dotnet restore:*)",
       "Bash(dotnet run:*)",
-      "Bash(tasklist:*)"
+      "Bash(dotnet new:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet nuget:*)",
+      "Bash(tasklist:*)",
+      "Bash(done)",
+      "WebFetch(domain:docs.duendesoftware.com)",
+      "Bash(curl:*)"
     ]
   }
 }
