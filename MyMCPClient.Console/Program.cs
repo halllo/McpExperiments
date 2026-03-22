@@ -5,11 +5,11 @@ using Microsoft.IdentityModel.JsonWebTokens;
 
 
 // Local tool
-await using var mcpClient1 = await McpClient.CreateAsync(new StdioClientTransport(new()
-{
-	Name = "Stdio MCP Server",
-	Command = @"D:\McpExperiments\MyMCPServer.Stdio\bin\Debug\net10.0\MyMCPServer.Stdio.exe",
-}));
+// await using var mcpClient1 = await McpClient.CreateAsync(new StdioClientTransport(new()
+// {
+// 	Name = "Stdio MCP Server",
+// 	Command = @"D:\McpExperiments\MyMCPServer.Stdio\bin\Debug\net10.0\MyMCPServer.Stdio.exe",
+// }));
 
 // Local Dejure
 // await using var mcpClient3 = await McpClient.CreateAsync(new StdioClientTransport(new()
@@ -24,7 +24,7 @@ var tokenCache = new TokenCacheFile("token_cache.json");
 var httpClientTransport = new HttpClientTransport(new()
 {
 	Name = "Vibe MCP Server",
-	Endpoint = new Uri("https://localhost:7296/mcp"),
+	Endpoint = new Uri("https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp"),
 	TransportMode = HttpTransportMode.StreamableHttp,
 	OAuth = new()
 	{
@@ -43,7 +43,7 @@ var jwt = jwtTokenHandler.ReadJsonWebToken(token?.AccessToken ?? string.Empty);
 Console.WriteLine("Authenticated:");
 Console.WriteLine(JsonSerializer.Serialize(jwt.Claims.Select(c => new { c.Type, c.Value }), new JsonSerializerOptions { WriteIndented = true }));
 
-var mcpClients = new[] { mcpClient1, mcpClient2,/* mcpClient3 */ };
+var mcpClients = new[] { /*mcpClient1,*/ mcpClient2,/* mcpClient3 */ };
 
 
 

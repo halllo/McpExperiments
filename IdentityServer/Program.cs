@@ -1,4 +1,5 @@
 using IdentityServer;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,8 +16,19 @@ builder.Services.AddIdentityServer()
 
 var app = builder.Build();
 
+app.UsePathBase("/identity");
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+	ForwardedHeaders =
+	  ForwardedHeaders.XForwardedFor
+	| ForwardedHeaders.XForwardedHost
+	| ForwardedHeaders.XForwardedProto
+});
+
 app.MapDefaultEndpoints();
 app.UseStaticFiles();
+app.UseRouting();
 app.UseIdentityServer();
 app.UseAuthorization();
 app.MapRazorPages().RequireAuthorization();

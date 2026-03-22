@@ -18,7 +18,7 @@ var myAgent = builder.AddProject<Projects.MyAgent>("my-agent")
     .WaitFor(identityServer)
     .WaitFor(myMcpServer);
 
-var gateway = builder.AddYarp("Gateway")
+var gateway = builder.AddYarp("gateway")
    .WithHostHttpsPort(8443)
    .WithHostPort(8080)
    .WithStaticFiles("../wwwroot")

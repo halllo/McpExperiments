@@ -15,7 +15,7 @@ public static class Config
 
     public static IEnumerable<ApiResource> ApiResources =>
     [
-        new ApiResource("https://localhost:7296/mcp") { Scopes = ["notes", "admin"] },
+        new ApiResource("https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp") { Scopes = ["notes", "admin"] },
     ];
 
     public static IEnumerable<ApiScope> ApiScopes =>
