@@ -18,6 +18,10 @@ using System.Security.Cryptography;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddServiceDefaults();
+
+var identityServerUrl = builder.Configuration["services__identity-server__https__0"] ?? "https://localhost:5001";
+
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMcpServer(o =>
@@ -101,7 +105,7 @@ builder.Services.AddAuthentication(config =>
 	//This is the remote OIDC authentication the MCP server should use.
 	.AddOpenIdConnect(o =>
 	{
-		o.Authority = "https://localhost:5001";
+		o.Authority = identityServerUrl;
 		o.ClientId = "mcp_server";
 		o.ClientSecret = "secret";
 		o.ResponseType = OpenIdConnectResponseType.Code;
@@ -155,7 +159,7 @@ builder.Services.AddAuthentication(config =>
 	//This is the new bearer authentication for the MCP endpoints, where MCP server is only a resource provider.
 	.AddJwtBearer("mcp=rp", options =>
 	{
-		options.Authority = "https://localhost:5001";
+		options.Authority = identityServerUrl;
 		options.TokenValidationParameters = new TokenValidationParameters
 		{
 			ValidAudiences = ["http://localhost:5253/bot", "https://localhost:7296/bot"],
@@ -195,8 +199,8 @@ builder.Services.AddAuthentication(config =>
 		{
 			context.ResourceMetadata = new()
 			{
-				Resource = new Uri($"{context.Request.Scheme}://{context.Request.Host}/bot"),
-				AuthorizationServers = { new Uri("https://localhost:5001") },
+				Resource = $"{context.Request.Scheme}://{context.Request.Host}/bot",
+				AuthorizationServers = { identityServerUrl },
 				ScopesSupported = ["openid", "profile", "verification", "notes", "admin"],//dont include "offline_access" here, as not all clients may support refresh tokens.
 			};
 			return Task.CompletedTask;
@@ -234,6 +238,7 @@ builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, JwtBearer
 
 var app = builder.Build();
 
+app.MapDefaultEndpoints();
 app.MapOpenApi();
 app.UseCors();
 

@@ -9,6 +9,11 @@ using System.Net.Http.Headers;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
+var identityServerUrl = builder.Configuration["services__identity-server__https__0"] ?? "https://localhost:5001";
+var mcpServerUrl = builder.Configuration["services__mcp-server__https__0"] ?? "https://localhost:7296";
+
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 
@@ -18,7 +23,7 @@ builder.Services.AddHttpClient("mcp").AddHttpMessageHandler<SetAccessToken>().Ad
 builder.Services.AddScoped(sp => new HttpClientTransport(new()
 {
 	Name = "Vibe MCP Server",
-	Endpoint = new Uri("https://localhost:7296/"),
+	Endpoint = new Uri(mcpServerUrl + "/"),
 	TransportMode = HttpTransportMode.StreamableHttp,
 }, sp.GetRequiredKeyedService<HttpClient>("mcp")));
 
@@ -41,7 +46,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 	})
 	.AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, o =>
 	{
-		o.Authority = "https://localhost:5001";
+		o.Authority = identityServerUrl;
 		o.ClientId = "mcp_server";
 		o.ClientSecret = "secret";
 		o.ResponseType = OpenIdConnectResponseType.Code;
@@ -60,6 +65,7 @@ builder.Services.AddAuthorization();
 
 
 var app = builder.Build();
+app.MapDefaultEndpoints();
 app.MapOpenApi();
 app.UseHttpsRedirection();
 app.UseAuthentication();
