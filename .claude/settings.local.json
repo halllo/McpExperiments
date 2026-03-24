@@ -16,7 +16,14 @@
       "Bash(tasklist:*)",
       "Bash(done)",
       "WebFetch(domain:docs.duendesoftware.com)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(podman ps:*)",
+      "Bash(podman version:*)",
+      "Bash(podman exec:*)",
+      "Bash(podman inspect:*)",
+      "Bash(podman network:*)",
+      "Bash(findstr:*)",
+      "Bash(podman machine:*)"
     ]
   }
 }
