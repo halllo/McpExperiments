@@ -4,11 +4,23 @@ using Amazon.BedrockRuntime;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+      ForwardedHeaders.XForwardedFor |
+      ForwardedHeaders.XForwardedHost |
+      ForwardedHeaders.XForwardedProto;
+    // Optionally clear KnownIPNetworks and KnownProxies to trust all (for cloud/proxy scenarios)
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddOpenApi();
 
@@ -37,7 +49,11 @@ var amazonbedrock = builder.AddAIAgent("amazonbedrock", (sp, key) => CreateAgent
     tools: Array.Empty<AIFunction>(),
     services: sp));
 
+
 var app = builder.Build();
+
+app.UseForwardedHeaders();
+app.UsePathBase("/my-agent");
 
 app.MapOpenApi();
 app.MapScalarApiReference();

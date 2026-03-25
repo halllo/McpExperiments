@@ -14,6 +14,17 @@ var internalIdentityServerUrl = builder.Configuration["services:identity-server:
 var identityServerUrl = "https://gateway-mcpexperiments.dev.localhost:8443/identity";
 Console.WriteLine($"Using Identity Server URL: {identityServerUrl}");
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+	options.ForwardedHeaders =
+	  ForwardedHeaders.XForwardedFor |
+	  ForwardedHeaders.XForwardedHost |
+	  ForwardedHeaders.XForwardedProto;
+	// Optionally clear KnownIPNetworks and KnownProxies to trust all (for cloud/proxy scenarios)
+	options.KnownIPNetworks.Clear();
+	options.KnownProxies.Clear();
+});
+
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMcpServer(o =>
@@ -134,15 +145,8 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UsePathBase("/my-mcp-server");
-
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-	ForwardedHeaders =
-	  ForwardedHeaders.XForwardedFor
-	| ForwardedHeaders.XForwardedHost
-	| ForwardedHeaders.XForwardedProto
-});
 
 app.MapDefaultEndpoints();
 app.MapOpenApi();

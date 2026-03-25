@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.AI;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using ModelContextProtocol.Client;
@@ -13,6 +14,17 @@ builder.AddServiceDefaults();
 
 var identityServerUrl = builder.Configuration["services:identity-server:https:0"];
 var myMcpServerUrl = builder.Configuration["services:my-mcp-server:https:0"];
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+	options.ForwardedHeaders =
+	  ForwardedHeaders.XForwardedFor |
+	  ForwardedHeaders.XForwardedHost |
+	  ForwardedHeaders.XForwardedProto;
+	// Optionally clear KnownIPNetworks and KnownProxies to trust all (for cloud/proxy scenarios)
+	options.KnownIPNetworks.Clear();
+	options.KnownProxies.Clear();
+});
 
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
@@ -65,6 +77,10 @@ builder.Services.AddAuthorization();
 
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
+app.UsePathBase("/my-mcp-web-client");
+
 app.MapDefaultEndpoints();
 app.MapOpenApi();
 app.UseHttpsRedirection();

@@ -11,4 +11,5 @@
   <Project Path="MyMCPServer.Stdio/MyMCPServer.Stdio.csproj" />
   <Project Path="MyAgent/MyAgent.csproj" />
   <Project Path="CodeInterpreter/CodeInterpreter.csproj" />
+  <Project Path="IdentityServer/IdentityServer.csproj" />
 </Solution>
