@@ -25,7 +25,7 @@ namespace MyMCPServer.Sse
 		{
 			var user = this.httpContextAccessor.HttpContext?.User;
 			var name = user?.FindFirst("name")?.Value;
-			var sub = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+			var sub = user?.FindFirst("sub")?.Value;
 			if (name is null || sub is null)
 			{
 				//creates an "isError:true" tool result.

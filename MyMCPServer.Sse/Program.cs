@@ -11,8 +11,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
 var internalIdentityServerUrl = builder.Configuration["services:identity-server:https:0"];
-var identityServerUrl = "https://gateway-mcpexperiments.dev.localhost:8443/identity";
+//var identityServerUrl = "https://gateway-mcpexperiments.dev.localhost:8443/identity";
+var identityServerUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/identity";
 Console.WriteLine($"Using Identity Server URL: {identityServerUrl}");
+
+//var audience = "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp";
+var audience = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp";
+Console.WriteLine($"Using Audience: {audience}");
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -100,7 +105,7 @@ builder.Services.AddAuthentication(config =>
 	.AddJwtBearer(options =>
 	{
 		options.Authority = identityServerUrl;
-		options.Audience = "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp";
+		options.Audience = audience;
 		options.MapInboundClaims = false;//keep claim types as they are, do not map to Microsoft-specific claim types. this is important for MCP authentication to work, as it looks for specific claim types in the token.
 		options.ForwardChallenge = McpAuthenticationDefaults.AuthenticationScheme;
 		options.Events = new JwtBearerEvents

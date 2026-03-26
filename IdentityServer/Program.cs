@@ -27,6 +27,7 @@ builder.Services.AddIdentityServer(options =>
     .AddInMemoryApiScopes(Config.ApiScopes)
     .AddInMemoryClients(Config.Clients)
     .AddTestUsers(Config.TestUsers)
+    .AddProfileService<CustomProfileService>()
     .AddDeveloperSigningCredential(persistKey: false/*no file system access*/);
 
 

@@ -16,6 +16,7 @@ public static class Config
     public static IEnumerable<ApiResource> ApiResources =>
     [
         new ApiResource("https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp") { Scopes = ["notes", "admin"] },
+        new ApiResource("https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp") { Scopes = ["notes", "admin"] },
     ];
 
     public static IEnumerable<ApiScope> ApiScopes =>
@@ -28,7 +29,7 @@ public static class Config
     [
         new Client
         {
-            ClientId = "mcp_server",
+            ClientId = "mcp_host_web",
             ClientSecrets = { new Secret("secret".Sha256()) },
             AllowedGrantTypes = GrantTypes.Code,
             RedirectUris =
@@ -55,6 +56,32 @@ public static class Config
             RequireClientSecret = false,
             RequirePkce = true,
             AllowOfflineAccess = true,
+        },
+        new Client
+        {
+            ClientId = "https://www.mcpjam.com/.well-known/oauth/client-metadata.json",
+            ClientName = "MCPJam",
+            AllowedGrantTypes = GrantTypes.Code,
+            RequireClientSecret = false,
+            RequirePkce = true,
+            RedirectUris =
+            {
+                "mcpjam://oauth/callback",
+                "mcpjam://authkit/callback",
+                "http://127.0.0.1:6274/oauth/callback",
+                "http://127.0.0.1:6274/callback",
+                "http://127.0.0.1:6274/oauth/callback/debug",
+                "http://localhost:6274/oauth/callback",
+                "http://localhost:6274/callback",
+                "http://localhost:6274/oauth/callback/debug",
+                "http://127.0.0.1:5173/oauth/callback",
+                "http://127.0.0.1:5173/oauth/callback/debug",
+                "http://localhost:5173/oauth/callback",
+                "http://localhost:5173/oauth/callback/debug",
+                "https://app.mcpjam.com/oauth/callback",
+                "https://app.mcpjam.com/oauth/callback/debug",
+            },
+            AllowedScopes = { "openid", "profile", "verification", "notes", "admin" },
         },
     ];
 
