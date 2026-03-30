@@ -10,14 +10,16 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
-var internalIdentityServerUrl = builder.Configuration["services:identity-server:https:0"];
-//var identityServerUrl = "https://gateway-mcpexperiments.dev.localhost:8443/identity";
-var identityServerUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/identity";
-Console.WriteLine($"Using Identity Server URL: {identityServerUrl}");
+//var internalIdentityServerUrl = builder.Configuration["services:identity-server:https:0"];
+//var identityServerGatewayedUrl = "https://gateway-mcpexperiments.dev.localhost:8443/identity";
+var identityServerGatewayedUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/identity";
+var identityServerDirectUrl = "https://identity-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io";
+var identityServerUrl = identityServerDirectUrl;
 
-//var audience = "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp";
-var audience = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp";
-Console.WriteLine($"Using Audience: {audience}");
+//var audienceGatewayed = "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp";
+var audienceGatewayed = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp";
+var audienceDirect = "https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp";
+var audience = audienceDirect;
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -126,10 +128,14 @@ builder.Services.AddAuthentication(config =>
 	})
 	.AddMcp(options =>
 	{
-		options.ResourceMetadata = new()
+		options.Events.OnResourceMetadataRequest = context =>
 		{
-			AuthorizationServers = { identityServerUrl! },
-			ScopesSupported = ["openid", "profile", "verification", "notes", "admin"],//dont include "offline_access" here, as not all clients may support refresh tokens.
+			context.ResourceMetadata = new()
+			{
+				AuthorizationServers = { identityServerUrl! },
+				ScopesSupported = ["openid", "profile", "verification", "notes", "admin"],//dont include "offline_access" here, as not all clients may support refresh tokens.
+			};
+			return Task.CompletedTask;
 		};
 	})
 	;

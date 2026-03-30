@@ -17,6 +17,7 @@ public static class Config
     [
         new ApiResource("https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp") { Scopes = ["notes", "admin"] },
         new ApiResource("https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp") { Scopes = ["notes", "admin"] },
+        new ApiResource("https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp") { Scopes = ["notes", "admin"] },
     ];
 
     public static IEnumerable<ApiScope> ApiScopes =>
@@ -82,6 +83,17 @@ public static class Config
                 "https://app.mcpjam.com/oauth/callback/debug",
             },
             AllowedScopes = { "openid", "profile", "verification", "notes", "admin" },
+        },
+        new Client
+        {
+            ClientId = "claude_desktop",
+            ClientName = "Claude Desktop",
+            AllowedGrantTypes = GrantTypes.Code,
+            RequireClientSecret = false,
+            RequirePkce = true,
+            RedirectUris = { "https://claude.ai/api/mcp/auth_callback" },
+            AllowedScopes = { "openid", "profile", "verification", "notes", "admin" },
+            AllowOfflineAccess = true,
         },
     ];
 

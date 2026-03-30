@@ -15,7 +15,7 @@ This system makes the following endpoints available via its gateway:
 ## Deploy as Azure Container Apps
 
 ```powershell
-ASPIRE_CONTAINER_RUNTIME=podman aspire deploy
+$env:ASPIRE_CONTAINER_RUNTIME='podman'; aspire deploy
 ```
 
 ```zsh
@@ -71,9 +71,22 @@ npx @mcpjam/inspector@latest
 
 Authentication is a little bit flakey, but the OAuth Debugger works great.
 
-### Claude Desktop
+### Claude
 
-To install local MCP servers (stdio) in [Claude Desktop](https://claude.ai/download), we can easily add them to the `claude_desktop_config.json` like this:
+Get the desktop app form [Claude](https://claude.ai/download).
+
+#### Web (Claude.ai)
+
+Similar to the MCP Inspector, Claude.ai does not seem to support PRM behind a path like `/my-mcp-server/.well-known/oauth-protected-resource/mcp` and ASM behind a path like `/identity/.well-known/openid-configuration`. That means we cannot use the gatewayed approach.
+
+It does work when Identity Server and MCP Server run on different subdomains without any base path:
+
+- <https://my-mcp-server.hosting.io/mcp>
+- <https://identity-server.hosting.io>
+
+#### Desktop
+
+To install local MCP servers (stdio), we can easily add them to the `claude_desktop_config.json` like this:
 
 ```json
 {
