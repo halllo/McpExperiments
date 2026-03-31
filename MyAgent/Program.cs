@@ -40,13 +40,13 @@ builder.Services.AddSingleton<IAmazonBedrockAgentCore>(sp =>
 var openai = builder.AddAIAgent("openai", (sp, key) => CreateAgent(
     name: key,
     chatClient: OpenAI(sp.GetRequiredService<IConfiguration>(), sp),
-    tools: Array.Empty<AIFunction>(),
+    tools: GetTools(),
     services: sp));
 
 var amazonbedrock = builder.AddAIAgent("amazonbedrock", (sp, key) => CreateAgent(
     name: key,
     chatClient: AmazonBedrock(sp.GetRequiredService<IConfiguration>(), sp),
-    tools: Array.Empty<AIFunction>(),
+    tools: GetTools(),
     services: sp));
 
 
@@ -60,24 +60,6 @@ app.MapScalarApiReference();
 app.MapDevUI();
 app.MapOpenAIResponses();
 app.MapOpenAIConversations();
-
-app.Map("/execute", async (IAmazonBedrockAgentCore agentCore, ILogger<Program> logger) =>
-{
-    try
-    {
-        var result = await ExecuteCode(agentCore, logger,
-            pythonCode: """
-                        import math
-                        result = [math.factorial(i) for i in range(10)]
-                        print(result)
-                        """);
-        return Results.Ok(result);
-    }
-    catch (Exception)
-    {
-        return Results.Problem("An error occurred while executing the code.");
-    }
-});
 
 app.Run();
 
@@ -126,7 +108,39 @@ static AIAgent CreateAgent(string name, IChatClient chatClient, AIFunction[] too
         .Build(services);
 }
 
-static async Task<string> ExecuteCode(IAmazonBedrockAgentCore agentCore, ILogger<Program> logger, string pythonCode)
+static AIFunction[] GetTools()
+{
+    return [
+        AIFunctionFactory.Create(
+            method: (IServiceProvider services) =>
+            {
+                var loggerFactory = services.GetRequiredService<ILoggerFactory>();
+                var logger = loggerFactory.CreateLogger("GetCurrentTimeFunction");
+                logger.LogInformation("GetCurrentTimeFunction called.");
+
+                return DateTimeOffset.UtcNow;
+            },
+            name: "get_current_time",
+            description: "Get the current UTC time."
+        ),
+        AIFunctionFactory.Create(
+            method: async (IServiceProvider services, string code) =>
+            {
+                var loggerFactory = services.GetRequiredService<ILoggerFactory>();
+                var logger = loggerFactory.CreateLogger("CodeInterpreterFunction");
+                logger.LogInformation("CodeInterpreterFunction called.");
+
+                var agentCore = services.GetRequiredService<IAmazonBedrockAgentCore>();
+                var result = await ExecuteCode(agentCore, logger, code);
+                return result;
+            },
+            name: "code_interpreter",
+            description: "Execute Python code using the code interpreter."
+        ),
+    ];
+}
+
+static async Task<string> ExecuteCode(IAmazonBedrockAgentCore agentCore, ILogger logger, string pythonCode)
 {
     var codeInterpreterId = "aws.codeinterpreter.v1";
     var session = await agentCore.StartCodeInterpreterSessionAsync(new StartCodeInterpreterSessionRequest
