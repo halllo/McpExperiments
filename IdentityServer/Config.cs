@@ -16,6 +16,7 @@ public static class Config
     public static IEnumerable<ApiResource> ApiResources =>
     [
         new ApiResource("https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp") { Scopes = ["notes", "admin"] },
+        new ApiResource("https://my-mcp-server-mcpexperiments.dev.localhost:7296/mcp") { Scopes = ["notes", "admin"] },
         new ApiResource("https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp") { Scopes = ["notes", "admin"] },
         new ApiResource("https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp") { Scopes = ["notes", "admin"] },
     ];
@@ -58,6 +59,23 @@ public static class Config
             RequirePkce = true,
             AllowOfflineAccess = true,
         },
+        new Client
+		{
+			ClientId = "mcp_inspector",
+			AllowedGrantTypes = GrantTypes.Code,
+			RequireClientSecret = false,
+			RequirePkce = true,
+			RedirectUris =
+			{
+				"http://localhost:6274/oauth/callback",
+				"http://localhost:6274/oauth/callback/debug"
+			},
+			AllowedScopes = { "openid", "profile", "verification", "notes", "admin" },
+			AllowedCorsOrigins =
+			{
+				"http://localhost:6274"
+			}
+		},
         new Client
         {
             ClientId = "https://www.mcpjam.com/.well-known/oauth/client-metadata.json",

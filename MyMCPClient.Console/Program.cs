@@ -20,13 +20,15 @@ using Microsoft.IdentityModel.JsonWebTokens;
 
 // Remote tool
 var http = new HttpClient();
+File.Delete("token_cache.json");
 var tokenCache = new TokenCacheFile("token_cache.json");
 var httpClientTransport = new HttpClientTransport(new()
 {
 	Name = "Vibe MCP Server",
 	//Endpoint = new Uri("https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp"),
+	Endpoint = new Uri("https://my-mcp-server-mcpexperiments.dev.localhost:7296/mcp"),
 	//Endpoint = new Uri("https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp"),
-	Endpoint = new Uri("https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp"),
+	//Endpoint = new Uri("https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp"),
 	TransportMode = HttpTransportMode.StreamableHttp,
 	OAuth = new()
 	{

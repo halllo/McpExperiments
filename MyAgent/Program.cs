@@ -100,8 +100,15 @@ static AIAgent CreateAgent(string name, IChatClient chatClient, AIFunction[] too
     var applicationName = services.GetRequiredService<IHostEnvironment>().ApplicationName;
     return chatClient
         .AsAIAgent(
-            name: name,
-            tools: tools,
+            options: new ChatClientAgentOptions
+            {
+                Name = name,
+                ChatOptions = new ChatOptions()
+                {
+                    Tools = tools,
+                },
+                AIContextProviders = [],
+            },
             services: services)
         .AsBuilder()
         .UseOpenTelemetry(sourceName: applicationName, configure: c => c.EnableSensitiveData = true)

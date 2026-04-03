@@ -56,17 +56,35 @@ npx @modelcontextprotocol/inspector
 
 ⚠️ MCP inspector currently does not follow the `resource_metadata` URI of the `WWW-Authenticate` response header to locate the protected resource metadata according to [Section 5 of RFC9728](https://www.ietf.org/rfc/rfc9728.html#name-use-of-www-authenticate-for) ([OAuth flow does not support resourceMetadataUrl #576](https://github.com/modelcontextprotocol/inspector/issues/576)). Instead it follows a set of hardcoded rules or permutations to find one:
 
-1. <http://localhost:5253/.well-known/oauth-protected-resource/bot>
+1. <http://localhost:5253/.well-known/oauth-protected-resource/my-mcp-server>
 2. <http://localhost:5253/.well-known/oauth-protected-resource>
 3. <http://localhost:5253/.well-known/oauth-authorization-server>
 4. <http://localhost:5253/.well-known/openid-configuration>
 
-When the returned WWW-Authenticate contains `Bearer realm="McpAuth", resource_metadata="http://localhost:5253/bot/.well-known/oauth-protected-resource"`, MCP inspector should immediately acquire the protected resource metadata from <http://localhost:5253/bot/.well-known/oauth-protected-resource>. If no `resource_metadata` is provided, then it may fall back to trying permutations.
+When the returned WWW-Authenticate contains `Bearer realm="McpAuth", resource_metadata="http://localhost:5253/my-mcp-server/.well-known/oauth-protected-resource"`, MCP inspector should immediately acquire the protected resource metadata from <http://localhost:5253/my-mcp-server/.well-known/oauth-protected-resource>. If no `resource_metadata` is provided, then it may fall back to trying permutations.
+
+We can add an proxy endpoint at root level, that proxies the request to the subresource:
+
+```csharp
+yarp.AddRoute("/.well-known/oauth-protected-resource/my-mcp-server/mcp", myMcpServer);
+```
+
+Now MCP inspector successfully connects to the gatewayed MCP server at /my-mcp-sever.
 
 ### MCPJam Inspector
 
 ```powershell
 npx @mcpjam/inspector@latest
+```
+
+If you run it against self-signed certs locally:
+
+```powershell
+$env:NODE_TLS_REJECT_UNAUTHORIZED=0; npx @mcpjam/inspector@latest -v
+```
+
+```zsh
+NODE_TLS_REJECT_UNAUTHORIZED=0 npx @mcpjam/inspector@latest -v
 ```
 
 Authentication is a little bit flakey, but the OAuth Debugger works great.
@@ -114,12 +132,12 @@ We can use [mcp-remote](https://www.npmjs.com/package/mcp-remote) for that. By d
 
 ```powershell
 $env:NODE_OPTIONS='--use-system-ca'
-npx mcp-remote 'http://localhost:5253/bot' 63113 --static-oauth-client-info '{\"client_id\":\"mcp-remote\"}'
+npx mcp-remote 'http://localhost:5253/my-mcp-server' 63113 --static-oauth-client-info '{\"client_id\":\"mcp-remote\"}'
 ```
 
 ```cmd
 set NODE_OPTIONS=--use-system-ca
-npx mcp-remote http://localhost:5253/bot 63113 --static-oauth-client-info "{\"client_id\":\"mcp-remote\"}"
+npx mcp-remote http://localhost:5253/my-mcp-server 63113 --static-oauth-client-info "{\"client_id\":\"mcp-remote\"}"
 ```
 
 If `set NODE_OPTIONS=--use-system-ca` does not work anymore (`--use-system-ca is not allowed in NODE_OPTIONS`), consider `$env:NODE_TLS_REJECT_UNAUTHORIZED = "0"`.
@@ -127,7 +145,7 @@ If `set NODE_OPTIONS=--use-system-ca` does not work anymore (`--use-system-ca is
 Powershell does have an escaping problem, so we best put the oauth data in a separate json file and reference it like this:
 
 ```powershell
-npx mcp-remote 'http://localhost:5253/bot' 63113 --static-oauth-client-info "@D:\McpExperiments\MyMCPServer.Sse\mcp-remote-oauth-client-info.json"
+npx mcp-remote 'http://localhost:5253/my-mcp-server' 63113 --static-oauth-client-info "@D:\McpExperiments\MyMCPServer.Sse\mcp-remote-oauth-client-info.json"
 ```
 
 In the `claude_desktop_config.json` it looks like this:
@@ -139,7 +157,7 @@ In the `claude_desktop_config.json` it looks like this:
             "command": "npx",
             "args": [
                 "mcp-remote",
-                "http://localhost:5253/bot",
+                "http://localhost:5253/my-mcp-server",
                 "63113",
                 "--static-oauth-client-info",
                 "@D:\\McpExperiments\\MyMCPServer.Sse\\mcp-remote-oauth-client-info.json"

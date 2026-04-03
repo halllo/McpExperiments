@@ -11,15 +11,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
 //var internalIdentityServerUrl = builder.Configuration["services:identity-server:https:0"];
-//var identityServerGatewayedUrl = "https://gateway-mcpexperiments.dev.localhost:8443/identity";
-var identityServerGatewayedUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/identity";
-var identityServerDirectUrl = "https://identity-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io";
-var identityServerUrl = identityServerDirectUrl;
+var identityServerGatewayedUrl = "https://gateway-mcpexperiments.dev.localhost:8443/identity";
+var identityServerDirectUrl = "https://identity-server-mcpexperiments.dev.localhost:5001";
+// var identityServerGatewayedUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/identity";
+// var identityServerDirectUrl = "https://identity-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io";
+var identityServerUrl = identityServerGatewayedUrl;
 
-//var audienceGatewayed = "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp";
-var audienceGatewayed = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp";
-var audienceDirect = "https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp";
-var audience = audienceDirect;
+var audienceGatewayedUrl = "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp";
+var audienceDirectUrl = "https://my-mcp-server-mcpexperiments.dev.localhost:7296/mcp";
+// var audienceGatewayedUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp";
+// var audienceDirect Url= "https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp";
+var audience = audienceGatewayedUrl;
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

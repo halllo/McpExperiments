@@ -23,7 +23,14 @@
       "Bash(podman inspect:*)",
       "Bash(podman network:*)",
       "Bash(findstr:*)",
-      "Bash(podman machine:*)"
+      "Bash(podman machine:*)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:aspire.dev)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:www.nuget.org)",
+      "Bash(podman search:*)"
     ]
   }
 }

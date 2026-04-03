@@ -27,6 +27,7 @@ var myAgent = builder.AddProject<Projects.MyAgent>("my-agent")
     ;
 
 var gateway = builder.AddYarp("gateway")
+    .WithImageTag("2.3-preview-arm64v8")
     .WithHostHttpsPort(8443)
     .WithHostPort(8080)
     .WithStaticFiles("../wwwroot")
@@ -34,6 +35,7 @@ var gateway = builder.AddYarp("gateway")
     {
         yarp.AddRoute("/identity/{**catch-all}", identityServer);
         yarp.AddRoute("/my-mcp-server/{**catch-all}", myMcpServer);
+        yarp.AddRoute("/.well-known/oauth-protected-resource/my-mcp-server/mcp", myMcpServer);
         yarp.AddRoute("/my-mcp-web-client/{**catch-all}", myMcpWebClient);
         yarp.AddRoute("/my-agent/{**catch-all}", myAgent);
     })
