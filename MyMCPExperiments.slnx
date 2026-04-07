@@ -10,6 +10,7 @@
   <Project Path="MyMCPServer.Stdio.Cli/MyMCPServer.Stdio.Cli.csproj" />
   <Project Path="MyMCPServer.Stdio/MyMCPServer.Stdio.csproj" />
   <Project Path="MyAgent/MyAgent.csproj" />
+  <Project Path="MyAgent.Tests/MyAgent.Tests.csproj" />
   <Project Path="CodeInterpreter/CodeInterpreter.csproj" />
   <Project Path="IdentityServer/IdentityServer.csproj" />
 </Solution>
