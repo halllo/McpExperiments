@@ -5,11 +5,10 @@
   "license": "ISC",
   "author": "",
   "type": "commonjs",
-  "main": "index.mjs",
+  "main": "server.mjs",
   "scripts": {
     "build": "INPUT=mcp-app.html vite build",
-    "start": "node index.mjs",
-    "test": "node --test test.mjs"
+    "start": "node server.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.5.0",
