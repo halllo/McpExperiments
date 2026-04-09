@@ -1,0 +1,11 @@
+{
+  "name": "mcp-apps-via-a-gui",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "scripts": {
+    "test": "AG_UI_HOST=http://localhost:3000/api/copilotkit node --test conformance.mjs",
+    "test:host": "node --test conformance.mjs"
+  }
+}

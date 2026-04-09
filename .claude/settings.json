@@ -30,7 +30,13 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:www.nuget.org)",
-      "Bash(podman search:*)"
+      "Bash(podman search:*)",
+      "WebFetch(domain:docs.ag-ui.com)",
+      "Bash(node --input-type=module -e ':*)",
+      "WebFetch(domain:docs.copilotkit.ai)",
+      "WebFetch(domain:ai.pydantic.dev)",
+      "WebFetch(domain:pydantic.dev)",
+      "WebFetch(domain:www.npmjs.com)"
     ]
   }
 }
