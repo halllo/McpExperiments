@@ -5,7 +5,8 @@
   "license": "ISC",
   "author": "",
   "scripts": {
-    "test": "AG_UI_HOST=http://localhost:3000/api/copilotkit node --test conformance.mjs",
+    "test:copilotkit": "AG_UI_HOST=http://localhost:3000/api/copilotkit node --test conformance.mjs",
+    "test:maf": "AG_UI_HOST=http://localhost:5253 node --test conformance.mjs",
     "test:host": "node --test conformance.mjs"
   }
 }

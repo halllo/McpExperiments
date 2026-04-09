@@ -223,12 +223,18 @@ test('TOOL_CALL_RESULT for get-time contains a valid ISO 8601 UTC timestamp', { 
   );
   assert.ok(resultEvt, 'No TOOL_CALL_RESULT for get-time found');
 
-  // content is a plain string — the ISO timestamp returned by the tool
+  // content may be a plain ISO timestamp string, or a JSON-serialised MCP
+  // TextContent object like {"text":"<timestamp>","annotations":null,...}.
   assert.equal(typeof resultEvt.content, 'string',
     `TOOL_CALL_RESULT.content must be a string, got: ${JSON.stringify(resultEvt.content)}`
   );
+  let timestamp = resultEvt.content;
+  try {
+    const parsed = JSON.parse(resultEvt.content);
+    if (parsed && typeof parsed.text === 'string') timestamp = parsed.text;
+  } catch { /* not JSON — use as-is */ }
   assert.match(
-    resultEvt.content,
+    timestamp,
     ISO_8601_UTC,
     `Expected ISO 8601 UTC timestamp (e.g. 2024-01-15T10:30:00.000Z), got: "${resultEvt.content}"`
   );

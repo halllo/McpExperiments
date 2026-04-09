@@ -17,6 +17,7 @@
     "express": "^5.2.1"
   },
   "devDependencies": {
+    "@types/node": "^25.5.2",
     "vite": "^8.0.7",
     "vite-plugin-singlefile": "^2.3.2"
   }
