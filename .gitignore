@@ -403,3 +403,4 @@ FodyWeavers.xsd
 *.key
 token_cache.json
 nanobot.db
+.claude/settings.local.json

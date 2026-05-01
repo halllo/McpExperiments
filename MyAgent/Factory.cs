@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Amazon.BedrockAgentCore;
 using Amazon.BedrockAgentCore.Model;
 using Amazon.BedrockRuntime;
@@ -53,7 +54,7 @@ public static class Factory
                         Tools = tools,
                     },
                     ChatHistoryProvider = new FileSystemChatHistoryProvider(reducer: reducer), // DevUI uses InMemoryResponsesService, which stores/loads directly with IConversationStorage.
-                    AIContextProviders = [],
+                    AIContextProviders = [CreateSkillsProvider()],
                 },
                 services: services)
             .AsBuilder()
@@ -61,6 +62,36 @@ public static class Factory
             .Build(services)
             ;
     }
+
+#pragma warning disable MAAI001
+    public static AgentSkillsProvider CreateSkillsProvider()
+    {
+        var converterSkill = new AgentInlineSkill(
+            name: "unit-converter",
+            description: "Converts miles/kilometres and pounds/kilograms.",
+            instructions: """
+                Use this skill when the user asks for a unit conversion.
+                1. Read the conversion-table resource.
+                2. Use the convert script with the correct factor.
+                3. Return a concise answer with both units.
+                """)
+            .AddResource("conversion-table", """
+                | From       | To         | Factor   |
+                |------------|------------|----------|
+                | miles      | kilometres | 1.60934  |
+                | kilometres | miles      | 0.621371 |
+                | pounds     | kilograms  | 0.453592 |
+                | kilograms  | pounds     | 2.20462  |
+                """)
+            .AddScript("convert", (double value, double factor) =>
+            {
+                double result = Math.Round(value * factor, 4);
+                return JsonSerializer.Serialize(new { value, factor, result });
+            });
+
+        return new AgentSkillsProvider(converterSkill);
+    }
+#pragma warning restore MAAI001
 
     public static AIFunction[] GetTools()
     {
