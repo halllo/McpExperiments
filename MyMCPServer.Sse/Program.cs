@@ -20,7 +20,7 @@ var identityServerUrl = identityServerGatewayedUrl;
 var audienceGatewayedUrl = "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp";
 var audienceDirectUrl = "https://my-mcp-server-mcpexperiments.dev.localhost:7296/mcp";
 // var audienceGatewayedUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp";
-// var audienceDirect Url= "https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp";
+// var audienceDirectUrl= "https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp";
 var audience = audienceGatewayedUrl;
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>

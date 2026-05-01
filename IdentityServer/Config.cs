@@ -40,11 +40,13 @@ public static class Config
                 "https://localhost:7296/signin-oidc",
                 // MyMCPClient.Web
                 "https://localhost:7208/signin-oidc",
+                "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-web-client/signin-oidc",
             },
             PostLogoutRedirectUris =
             {
                 "https://localhost:7296/signout-callback-oidc",
                 "https://localhost:7208/signout-callback-oidc",
+                "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-web-client/signout-callback-oidc",
             },
             AllowedScopes = { "openid", "profile", "verification", "notes", "admin" },
             AllowOfflineAccess = true,

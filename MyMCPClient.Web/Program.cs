@@ -12,8 +12,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-var identityServerUrl = builder.Configuration["services:identity-server:https:0"];
-var myMcpServerUrl = builder.Configuration["services:my-mcp-server:https:0"];
+//var internalIdentityServerUrl = builder.Configuration["services:identity-server:https:0"];
+var identityServerGatewayedUrl = "https://gateway-mcpexperiments.dev.localhost:8443/identity";
+var identityServerDirectUrl = "https://identity-server-mcpexperiments.dev.localhost:5001";
+// var identityServerGatewayedUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/identity";
+// var identityServerDirectUrl = "https://identity-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io";
+var identityServerUrl = identityServerGatewayedUrl;
+
+// var myMcpServerUrl = builder.Configuration["services:my-mcp-server:https:0"];
+var myMcpServerUrlGatewayedUrl = "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp";
+var myMcpServerUrlDirectUrl = "https://my-mcp-server-mcpexperiments.dev.localhost:7296/mcp";
+// var myMcpServerUrlGatewayedUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp";
+// var myMcpServerUrlDirectUrl= "https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp";
+var myMcpServerUrl = myMcpServerUrlGatewayedUrl;
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -37,6 +48,7 @@ builder.Services.AddScoped(sp => new HttpClientTransport(new()
 	Name = "Vibe MCP Server",
 	Endpoint = new Uri(myMcpServerUrl + "/"),
 	TransportMode = HttpTransportMode.StreamableHttp,
+	// OAuth = ... //not supported yet
 }, sp.GetRequiredKeyedService<HttpClient>("mcp")));
 
 builder.Services.AddScoped<IChatClient>(sp => new FunctionInvokingChatClient(new OpenAI.Chat.ChatClient("gemma-3-27b-it", new ApiKeyCredential("my_key"), new OpenAI.OpenAIClientOptions()
@@ -59,7 +71,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 	.AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, o =>
 	{
 		o.Authority = identityServerUrl;
-		o.ClientId = "my-mcp-server";
+		o.ClientId = "mcp_host_web";
 		o.ClientSecret = "secret";
 		o.ResponseType = OpenIdConnectResponseType.Code;
 		o.Scope.Add("openid");

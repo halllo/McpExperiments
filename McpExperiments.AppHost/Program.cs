@@ -39,7 +39,7 @@ var gateway = builder.AddYarp("gateway")
      * AddServiceDefaults (call #1): https://github.com/dotnet/yarp/blob/main/src/Application/Extensions.cs
      * Image tags: mcr.microsoft.com/dotnet/nightly/yarp
      */
-    .WithImageTag("2.3-preview-arm64v8")
+    // .WithImageTag("2.3-preview-arm64v8")
     .WithHostHttpsPort(8443)
     .WithHostPort(8080)
     .WithStaticFiles("../wwwroot")
