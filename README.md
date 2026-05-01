@@ -63,7 +63,7 @@ npx @modelcontextprotocol/inspector
 
 When the returned WWW-Authenticate contains `Bearer realm="McpAuth", resource_metadata="http://localhost:5253/my-mcp-server/.well-known/oauth-protected-resource"`, MCP inspector should immediately acquire the protected resource metadata from <http://localhost:5253/my-mcp-server/.well-known/oauth-protected-resource>. If no `resource_metadata` is provided, then it may fall back to trying permutations.
 
-We can add an proxy endpoint at root level, that proxies the request to the subresource:
+We can add a proxy endpoint at root level, that proxies the request to the subresource:
 
 ```csharp
 yarp.AddRoute("/.well-known/oauth-protected-resource/my-mcp-server/mcp", myMcpServer);
@@ -95,12 +95,7 @@ Get the desktop app form [Claude](https://claude.ai/download).
 
 #### Web (Claude.ai)
 
-Similar to the MCP Inspector, Claude.ai does not seem to support PRM behind a path like `/my-mcp-server/.well-known/oauth-protected-resource/mcp` and ASM behind a path like `/identity/.well-known/openid-configuration`. That means we cannot use the gatewayed approach.
-
-It does work when Identity Server and MCP Server run on different subdomains without any base path:
-
-- <https://my-mcp-server.hosting.io/mcp>
-- <https://identity-server.hosting.io>
+Similar to the MCP Inspector, Claude.ai does not seem to support PRM behind a path like `/my-mcp-server/.well-known/oauth-protected-resource/mcp`. That means we need to make PRM available on root level like `/.well-known/oauth-protected-resource/my-mcp-server/mcp` and proxy it to `/my-mcp-server/.well-known/oauth-protected-resource/mcp`. Now Claude.ai authentication works.
 
 #### Desktop
 
@@ -121,10 +116,6 @@ To install local MCP servers (stdio), we can easily add them to the `claude_desk
     }
 }
 ```
-
-~~Claude Desktop supports remote MCP servers as "Connectors" ([Building Remote MCP Servers](https://support.anthropic.com/en/articles/11503834-building-custom-connectors-via-remote-mcp-servers)), but adding custom ones only on Pro/Max or Enterprise/Team plans ([Getting Started with Custom Connectors Using Remote MCP](https://support.anthropic.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp)).~~
-
-~~Custom OAuth `client_id` are currently only available for Claude for Work. For non-work accounts it requires DCR. A localhost hosted MCP server can be added, but "connecting" it does not seem to work: Claude Desktop just opens Claude Web but does not actually do anything and Claude Web just reloads the page.~~
 
 Custom connectors as remote MCP servers can also be added, with a OAuth ClientId & Secret. However custom connectors try to do auth at /authorize, not at at the authorize endpoint configured in the metadata of the authorization server configured in the protected resource metadata of the MCP server.
 
@@ -228,6 +219,12 @@ pnpm build
 npm link #make it available everywhere
 npm list -g --depth=0 #to verify its actually available
 npx mcp-remote #use linked version everywhere
+```
+
+Or without `npm link`:
+
+```bash
+npx --package=/Users/Manuel.Naujoks/Projects/mcp-remote mcp-remote https://…
 ```
 
 Make sure your Claude Desktop instance does not use its built-in Node.js, but instead uses your operating system's version of Node.js. Under Settings / Extensions / Advanced Settings you should see the same Node.js version that you used when you ran `npm link`.
