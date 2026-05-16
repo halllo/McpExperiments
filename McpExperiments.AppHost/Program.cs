@@ -38,8 +38,10 @@ var gateway = builder.AddYarp("gateway")
      * Double registration: https://github.com/dotnet/yarp/blob/main/src/Application/Program.cs
      * AddServiceDefaults (call #1): https://github.com/dotnet/yarp/blob/main/src/Application/Extensions.cs
      * Image tags: mcr.microsoft.com/dotnet/nightly/yarp
+     *
+     * Should be fixed with Yarp 3.0: https://github.com/dotnet/yarp/pull/3007
      */
-    // .WithImageTag("2.3-preview-arm64v8")
+    .WithImageTag("2.3-preview-arm64v8")
     .WithHostHttpsPort(8443)
     .WithHostPort(8080)
     .WithStaticFiles("../wwwroot")

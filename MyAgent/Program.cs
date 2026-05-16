@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.AI;
 using MyAgent;
 using Scalar.AspNetCore;
-using static MyAgent.Factory;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,17 +35,16 @@ builder.Services.AddSingleton<IAmazonBedrockAgentCore>(sp =>
         awsSecretAccessKey: configuration["AWSBedrockSecretAccessKey"],
         region: Amazon.RegionEndpoint.GetBySystemName(configuration["AWSBedrockRegion"]));
 });
+builder.Services.AddSingleton<CodeInterpreter>();
 
-var openai = builder.AddAIAgent("openai", (sp, key) => CreateAgent(
+var openai = builder.AddAIAgent("openai", (sp, key) => Factory.CreateAgent(
     name: key,
     chatClient: Factory.OpenAI(sp.GetRequiredService<IConfiguration>(), sp),
-    tools: GetTools(),
     services: sp));
 
-var amazonbedrock = builder.AddAIAgent("amazonbedrock", (sp, key) => CreateAgent(
+var amazonbedrock = builder.AddAIAgent("amazonbedrock", (sp, key) => Factory.CreateAgent(
     name: key,
-    chatClient: AmazonBedrock(sp.GetRequiredService<IConfiguration>(), sp),
-    tools: GetTools(),
+    chatClient: Factory.AmazonBedrock(sp.GetRequiredService<IConfiguration>(), sp),
     services: sp));
 
 

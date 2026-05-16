@@ -14,7 +14,7 @@ public sealed class AgentSkillTests
         var host = Program.BuildHost();
         var config = host.Services.GetRequiredService<IConfiguration>();
         var openai = Factory.OpenAI(config, host.Services);
-        return Factory.CreateAgent("", openai, Factory.GetTools(), host.Services);
+        return Factory.CreateAgent("", openai, host.Services);
     }
 
     [TestMethod]

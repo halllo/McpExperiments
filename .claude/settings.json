@@ -37,7 +37,10 @@
       "WebFetch(domain:docs.copilotkit.ai)",
       "WebFetch(domain:ai.pydantic.dev)",
       "WebFetch(domain:pydantic.dev)",
-      "WebFetch(domain:www.npmjs.com)"
+      "WebFetch(domain:www.npmjs.com)",
+      "mcp__chrome-devtools__*",
+      "mcp__safari__*",
+      "mcp__figma__*"
     ]
   }
 }

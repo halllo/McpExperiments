@@ -15,7 +15,7 @@ public sealed class ChatHistoryReducingTests
         var host = Program.BuildHost();
         var config = host.Services.GetRequiredService<IConfiguration>();
         var openai = Factory.OpenAI(config, host.Services);
-        var agent = Factory.CreateAgent("", openai, Factory.GetTools(), host.Services, reducer);
+        var agent = Factory.CreateAgent("", openai, host.Services, reducer);
         return agent;
     }
 
