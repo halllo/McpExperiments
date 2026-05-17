@@ -39,24 +39,26 @@ public static class Factory
             ;
     }
 
-    public static AIAgent CreateAgent(string name, IChatClient chatClient, IServiceProvider services, IChatReducer? reducer = null)
+    public static AIAgent CreateAgent(string name, IChatClient chatClient, IServiceProvider services, IChatReducer? reducer = null, IList<AITool>? tools = null)
     {
         var applicationName = services.GetRequiredService<IHostEnvironment>().ApplicationName;
         return chatClient
             .AsAIAgent(
                 options: new ChatClientAgentOptions
                 {
+                    Id = Guid.Empty.ToString(),
                     Name = name,
                     ChatOptions = new ChatOptions()
                     {
-                        Tools = GetTools(),
+                        Temperature = 0,
+                        Tools = tools,
                     },
                     ChatHistoryProvider = new FileSystemChatHistoryProvider(reducer: reducer), // DevUI uses InMemoryResponsesService, which stores/loads directly with IConversationStorage.
                     AIContextProviders = [CreateSkillsProvider()],
                 },
                 services: services)
             .AsBuilder()
-            .UseCodeInterpreterSessionOnDemand()
+            .UseCodeInterpreterSessionPerRun()
             .UseOpenTelemetry(sourceName: applicationName, configure: c => c.EnableSensitiveData = true)
             .Build(services)
             ;
@@ -124,15 +126,33 @@ public static class Factory
             ])
             .UseFileScriptRunner(async (skill, script, arguments, services, cancellationToken) =>
             {
-                var logger = services!.GetRequiredService<ILoggerFactory>().CreateLogger("AgentFileSkillScriptRunner");
-
-                var scriptContent = await File.ReadAllTextAsync(script.FullPath, cancellationToken);
-                logger.LogInformation("Running script {ScriptName} with arguments {Arguments}: {Content}", script.Name, arguments, scriptContent);
-
-                //??? how to actually invoke the script?
+                var logger = services!.GetRequiredService<ILoggerFactory>().CreateLogger("MyAgent.ScriptRunner");
                 var codeInterpreter = services!.GetRequiredService<CodeInterpreter>();
-                var result = await codeInterpreter.ExecuteCode(scriptContent, cancellationToken);
-                return result;
+
+                var sandboxScriptsBase = $"skills/{skill.Frontmatter.Name}/scripts";
+                var scriptsDir = Path.Combine(skill.Path, "scripts");
+                string? sandboxScriptPath = null;
+                foreach (var filePath in Directory.EnumerateFiles(scriptsDir, "*", SearchOption.AllDirectories))
+                {
+                    var relativePath = Path.GetRelativePath(scriptsDir, filePath).Replace('\\', '/');
+                    var targetPath = $"{sandboxScriptsBase}/{relativePath}";
+                    var fileContent = await File.ReadAllTextAsync(filePath, cancellationToken);
+                    await codeInterpreter.WriteFileIfNew(path: targetPath, content: fileContent, cancellationToken: cancellationToken);
+                    if (filePath == script.FullPath) sandboxScriptPath = targetPath;
+                }
+                sandboxScriptPath ??= $"{sandboxScriptsBase}/{Path.GetFileName(script.FullPath)}";
+
+                var commandLineParts = new List<string> { "python3", sandboxScriptPath };
+                if (arguments is { ValueKind: JsonValueKind.Array } json)
+                    foreach (var element in json.EnumerateArray())
+                        commandLineParts.Add(element.GetString()!);
+
+                static string ShellQuote(string s) => "'" + s.Replace("'", "'\\''") + "'";
+                var command = string.Join(" ", commandLineParts.Select(ShellQuote));
+
+                logger.LogInformation("Running script {ScriptName}: {Command}", script.Name, command);
+
+                return await codeInterpreter.ExecuteCommand(command, directoryPath: sandboxScriptsBase, cancellationToken);
             })
             .Build();
 

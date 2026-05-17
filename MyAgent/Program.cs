@@ -40,12 +40,14 @@ builder.Services.AddSingleton<CodeInterpreter>();
 var openai = builder.AddAIAgent("openai", (sp, key) => Factory.CreateAgent(
     name: key,
     chatClient: Factory.OpenAI(sp.GetRequiredService<IConfiguration>(), sp),
-    services: sp));
+    services: sp,
+    tools: Factory.GetTools()));
 
 var amazonbedrock = builder.AddAIAgent("amazonbedrock", (sp, key) => Factory.CreateAgent(
     name: key,
     chatClient: Factory.AmazonBedrock(sp.GetRequiredService<IConfiguration>(), sp),
-    services: sp));
+    services: sp,
+    tools: Factory.GetTools()));
 
 
 var app = builder.Build();

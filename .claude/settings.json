@@ -40,7 +40,9 @@
       "WebFetch(domain:www.npmjs.com)",
       "mcp__chrome-devtools__*",
       "mcp__safari__*",
-      "mcp__figma__*"
+      "mcp__figma__*",
+      "Bash(find /Users/manuel.naujoks/Projects/anthropics-skills/skills -type f | head -20)",
+      "Read(//Users/manuel.naujoks/Projects/anthropics-skills/skills/**)"
     ]
   }
 }
