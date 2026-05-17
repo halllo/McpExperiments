@@ -1,5 +1,4 @@
-#pragma warning disable MEAI001, MAAI001
-using Microsoft.Extensions.Configuration;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MyAgent.Tests;
@@ -9,19 +8,22 @@ public sealed class CodeInterpreterFileCaptureTests
 {
     public required TestContext TestContext { get; set; }
 
-    async Task<string> RunAndFindOutputFile(string fileName, string prompt, Action<string> onOutputDir)
+    async Task<string> RunAndFindOutputFile(string fileName, string pythonCode, Action<string> onOutputDir)
     {
         var workDir = Directory.GetCurrentDirectory();
         var dirsBefore = new HashSet<string>(Directory.GetDirectories(workDir));
 
-        var services = Program.BuildHost().Services;
-        var agent = Factory.CreateAgent(
-            name: "file-capture-test",
-            chatClient: Factory.OpenAI(services.GetRequiredService<IConfiguration>(), services),
-            services: services,
-            tools: Factory.GetTools());
-
-        await agent.RunAsync(prompt, cancellationToken: TestContext.CancellationToken);
+        var runOptions = new AgentRunOptions();
+        var codeInterpreter = Program.BuildHost().Services.GetRequiredService<CodeInterpreter>();
+        try
+        {
+            var result = await codeInterpreter.ExecuteCode(pythonCode, runOptions, TestContext.CancellationToken);
+            await Factory.SaveNewFiles(result);
+        }
+        finally
+        {
+            await codeInterpreter.CloseCodeInterpreter(runOptions);
+        }
 
         var newDirs = Directory.GetDirectories(workDir).Where(d => !dirsBefore.Contains(d)).ToList();
         Assert.AreEqual(1, newDirs.Count,
@@ -50,8 +52,6 @@ public sealed class CodeInterpreterFileCaptureTests
         try
         {
             var filePath = await RunAndFindOutputFile(fileName, $"""
-                Use the code_interpreter tool to execute this exact Python code and do nothing else:
-
                 import os
                 with open(os.path.expanduser('~/{fileName}'), 'w') as f:
                     f.write('{fileContent}')
@@ -78,8 +78,6 @@ public sealed class CodeInterpreterFileCaptureTests
         try
         {
             var filePath = await RunAndFindOutputFile(fileName, $"""
-                Use the code_interpreter tool to execute this exact Python code and do nothing else:
-
                 import os
                 data = bytes([{byteList}])
                 with open(os.path.expanduser('~/{fileName}'), 'wb') as f:
@@ -98,4 +96,3 @@ public sealed class CodeInterpreterFileCaptureTests
         }
     }
 }
-#pragma warning restore MEAI001, MAAI001

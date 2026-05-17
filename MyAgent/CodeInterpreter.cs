@@ -15,9 +15,9 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
     private const string codeInterpreterId = "aws.codeinterpreter.v1";
     private const string runOptionSessionIdKey = "code_interpreter_sessionid";
 
-    public async Task<SandboxResult> ExecuteCode(string pythonCode, CancellationToken cancellationToken = default)
+    public async Task<SandboxResult> ExecuteCode(string pythonCode, AgentRunOptions? runOptions = null, CancellationToken cancellationToken = default)
     {
-        var sessionId = await EnsureSession(cancellationToken);
+        var sessionId = await EnsureSession(runOptions, cancellationToken);
         try
         {
             var filesBefore = await GetSandboxFileState(sessionId, cancellationToken);
@@ -51,9 +51,9 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
         }
     }
 
-    public async Task<SandboxResult> ExecuteCommand(string command, string? directoryPath = null, CancellationToken cancellationToken = default)
+    public async Task<SandboxResult> ExecuteCommand(string command, string? directoryPath = null, AgentRunOptions? runOptions = null, CancellationToken cancellationToken = default)
     {
-        var sessionId = await EnsureSession(cancellationToken);
+        var sessionId = await EnsureSession(runOptions, cancellationToken);
         try
         {
             var filesBefore = await GetSandboxFileState(sessionId, cancellationToken);
@@ -87,28 +87,27 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
         }
     }
 
-    public async Task WriteFilesIfNew(IEnumerable<(string path, string content)> files, CancellationToken cancellationToken = default)
+    public async Task WriteFilesIfNew(IEnumerable<(string path, string content)> files, AgentRunOptions? runOptions = null, CancellationToken cancellationToken = default)
     {
         const string uploadedFilesKey = "code_interpreter_uploaded_files";
-        var runContext = AIAgent.CurrentRunContext
-            ?? throw new InvalidOperationException("RunOptions is not available in the current run context.");
+        var options = ResolveRunOptions(runOptions);
 
-        runContext.RunOptions!.AdditionalProperties ??= [];
-        if (!runContext.RunOptions.AdditionalProperties.TryGetValue(uploadedFilesKey, out var uploadedObj)
+        options.AdditionalProperties ??= [];
+        if (!options.AdditionalProperties.TryGetValue(uploadedFilesKey, out var uploadedObj)
             || uploadedObj is not HashSet<string> uploadedFiles)
         {
             uploadedFiles = [];
-            runContext.RunOptions.AdditionalProperties[uploadedFilesKey] = uploadedFiles;
+            options.AdditionalProperties[uploadedFilesKey] = uploadedFiles;
         }
 
         var toUpload = files.Where(f => uploadedFiles.Add(f.path)).ToList();
         if (toUpload.Count > 0)
-            await WriteFiles(toUpload, cancellationToken);
+            await WriteFiles(toUpload, runOptions, cancellationToken);
     }
 
-    public async Task WriteFiles(IEnumerable<(string path, string content)> files, CancellationToken cancellationToken = default)
+    public async Task WriteFiles(IEnumerable<(string path, string content)> files, AgentRunOptions? runOptions = null, CancellationToken cancellationToken = default)
     {
-        var sessionId = await EnsureSession(cancellationToken);
+        var sessionId = await EnsureSession(runOptions, cancellationToken);
         var blocks = files.Select(f => new InputContentBlock { Path = f.path, Text = f.content }).ToList();
         var response = await agentCore.InvokeCodeInterpreterAsync(new InvokeCodeInterpreterRequest
         {
@@ -119,6 +118,30 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
         }, cancellationToken);
         await foreach (var _ in response.Stream.WithCancellation(cancellationToken)) { }
         logger.LogDebug("Wrote {Count} file(s) to sandbox", blocks.Count);
+    }
+
+    public async Task<Dictionary<string, SandboxFileContent>> ReadFiles(IEnumerable<string> paths, AgentRunOptions? runOptions = null, CancellationToken cancellationToken = default)
+    {
+        var sessionId = await EnsureSession(runOptions, cancellationToken);
+        return await ReadFilesCore(sessionId, paths, cancellationToken);
+    }
+
+    public async Task CloseCodeInterpreter(AgentRunOptions? runOptions = null, CancellationToken cancellationToken = default)
+    {
+        var options = runOptions ?? AIAgent.CurrentRunContext?.RunOptions;
+        var sessionId = options?.AdditionalProperties?.TryGetValue(runOptionSessionIdKey, out var v) == true
+            ? v as string : null;
+        if (sessionId is not null)
+        {
+            await agentCore.StopCodeInterpreterSessionAsync(new StopCodeInterpreterSessionRequest
+            {
+                CodeInterpreterIdentifier = codeInterpreterId,
+                SessionId = sessionId
+            }, cancellationToken);
+
+            options!.AdditionalProperties!.Remove(runOptionSessionIdKey);
+            logger.LogInformation("Closed code interpreter {CodeInterpreterSessionId}", sessionId);
+        }
     }
 
     private async Task<Dictionary<string, SandboxFileContent>> DetectNewFiles(
@@ -159,12 +182,6 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
         return state;
     }
 
-    public async Task<Dictionary<string, SandboxFileContent>> ReadFiles(IEnumerable<string> paths, CancellationToken cancellationToken = default)
-    {
-        var sessionId = await EnsureSession(cancellationToken);
-        return await ReadFilesCore(sessionId, paths, cancellationToken);
-    }
-
     private async Task<Dictionary<string, SandboxFileContent>> ReadFilesCore(string sessionId, IEnumerable<string> paths, CancellationToken cancellationToken)
     {
         var response = await agentCore.InvokeCodeInterpreterAsync(new InvokeCodeInterpreterRequest
@@ -203,14 +220,12 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
         return result;
     }
 
-    private async Task<string> EnsureSession(CancellationToken cancellationToken)
+    private async Task<string> EnsureSession(AgentRunOptions? runOptions, CancellationToken cancellationToken)
     {
-        var runContext = AIAgent.CurrentRunContext;
-        if (runContext?.RunOptions is null)
-            throw new InvalidOperationException("RunOptions is not available in the current run context.");
+        var options = ResolveRunOptions(runOptions);
 
-        runContext.RunOptions.AdditionalProperties ??= [];
-        var sessionId = runContext.RunOptions.AdditionalProperties.TryGetValue(runOptionSessionIdKey, out var existing)
+        options.AdditionalProperties ??= [];
+        var sessionId = options.AdditionalProperties.TryGetValue(runOptionSessionIdKey, out var existing)
             ? existing as string
             : null;
 
@@ -225,7 +240,7 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
             }, cancellationToken);
 
             sessionId = started.SessionId;
-            runContext.RunOptions.AdditionalProperties[runOptionSessionIdKey] = sessionId;
+            options.AdditionalProperties[runOptionSessionIdKey] = sessionId;
             logger.LogInformation("Started code interpreter {CodeInterpreterSessionId}", sessionId);
         }
         else
@@ -236,23 +251,9 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
         return sessionId;
     }
 
-    public async Task CloseCodeInterpreter(CancellationToken cancellationToken = default)
-    {
-        var runContext = AIAgent.CurrentRunContext;
-        var sessionId = runContext?.RunOptions?.AdditionalProperties?.TryGetValue(runOptionSessionIdKey, out var v) == true
-            ? v as string : null;
-        if (sessionId is not null)
-        {
-            await agentCore.StopCodeInterpreterSessionAsync(new StopCodeInterpreterSessionRequest
-            {
-                CodeInterpreterIdentifier = codeInterpreterId,
-                SessionId = sessionId
-            }, cancellationToken);
-
-            runContext!.RunOptions!.AdditionalProperties!.Remove(runOptionSessionIdKey);
-            logger.LogInformation("Closed code interpreter {CodeInterpreterSessionId}", sessionId);
-        }
-    }
+    private static AgentRunOptions ResolveRunOptions(AgentRunOptions? runOptions) =>
+        runOptions ?? AIAgent.CurrentRunContext?.RunOptions
+        ?? throw new InvalidOperationException("RunOptions is not available in the current run context.");
 }
 
 public static class CodeInterpreterExtensions
@@ -278,7 +279,7 @@ public static class CodeInterpreterExtensions
             }
             finally
             {
-                await services.GetRequiredService<CodeInterpreter>().CloseCodeInterpreter(cancellationToken);
+                await services.GetRequiredService<CodeInterpreter>().CloseCodeInterpreter(options, cancellationToken);
             }
         }
 
@@ -295,7 +296,7 @@ public static class CodeInterpreterExtensions
                 yield return update;
             }
 
-            await services.GetRequiredService<CodeInterpreter>().CloseCodeInterpreter(cancellationToken);
+            await services.GetRequiredService<CodeInterpreter>().CloseCodeInterpreter(options, cancellationToken);
         }
     }
 }

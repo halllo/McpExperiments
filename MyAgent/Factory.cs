@@ -141,7 +141,7 @@ public static class Factory
                     filesToUpload.Add((targetPath, await File.ReadAllTextAsync(filePath, cancellationToken)));
                     if (filePath == script.FullPath) sandboxScriptPath = targetPath;
                 }
-                await codeInterpreter.WriteFilesIfNew(filesToUpload, cancellationToken);
+                await codeInterpreter.WriteFilesIfNew(filesToUpload, cancellationToken: cancellationToken);
                 sandboxScriptPath ??= $"{sandboxScriptsBase}/{Path.GetFileName(script.FullPath)}";
 
                 var commandLineParts = new List<string> { "python3", sandboxScriptPath };
@@ -154,7 +154,7 @@ public static class Factory
 
                 logger.LogInformation("Running script {ScriptName}: {Command}", script.Name, command);
 
-                var result = await codeInterpreter.ExecuteCommand(command, directoryPath: sandboxScriptsBase, cancellationToken);
+                var result = await codeInterpreter.ExecuteCommand(command, directoryPath: sandboxScriptsBase, cancellationToken: cancellationToken);
                 await SaveNewFiles(result);
                 return result.Output;
             })
@@ -164,7 +164,7 @@ public static class Factory
     }
 #pragma warning restore MAAI001
 
-    static async Task SaveNewFiles(SandboxResult result)
+    public static async Task SaveNewFiles(SandboxResult result)
     {
         if (result.NewFiles.Count == 0) return;
         var outputDir = Path.Combine("NewFiles", $"{result.SessionId}_{DateTimeOffset.UtcNow:yyyyMMdd_HHmmss}");
