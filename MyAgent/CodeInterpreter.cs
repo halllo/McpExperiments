@@ -3,19 +3,25 @@ using Amazon.BedrockAgentCore.Model;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace MyAgent;
+
+public record SandboxFileContent(string Path, string? Text, MemoryStream? Blob);
+public record SandboxResult(string SessionId, string Output, IReadOnlyDictionary<string, SandboxFileContent> NewFiles);
 
 public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInterpreter> logger)
 {
     private const string codeInterpreterId = "aws.codeinterpreter.v1";
     private const string runOptionSessionIdKey = "code_interpreter_sessionid";
 
-    public async Task<string> ExecuteCode(string pythonCode, CancellationToken cancellationToken = default)
+    public async Task<SandboxResult> ExecuteCode(string pythonCode, CancellationToken cancellationToken = default)
     {
         var sessionId = await EnsureSession(cancellationToken);
         try
         {
+            var filesBefore = await GetSandboxFileState(sessionId, cancellationToken);
+
             var response = await agentCore.InvokeCodeInterpreterAsync(new InvokeCodeInterpreterRequest
             {
                 CodeInterpreterIdentifier = codeInterpreterId,
@@ -28,23 +34,15 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
                 }
             }, cancellationToken);
 
-            var result = string.Empty;
+            var output = new StringBuilder();
             await foreach (var message in response.Stream.WithCancellation(cancellationToken))
-            {
-                if (message is CodeInterpreterResult resultMessage)
-                {
-                    foreach (var content in resultMessage.Content)
-                    {
-                        result += content.Text;
-                    }
-                }
-                else
-                {
-                    var type = message.GetType().Name;
-                }
-            }
-            logger.LogInformation("Received code interpreter {CodeInterpreterSessionId} result: {Result}", sessionId, result);
-            return result;
+                if (message is CodeInterpreterResult r)
+                    foreach (var content in r.Content)
+                        output.Append(content.Text);
+
+            var newFiles = await DetectNewFiles(sessionId, filesBefore, cancellationToken);
+            logger.LogInformation("Received code interpreter {CodeInterpreterSessionId} result: {Result}", sessionId, output);
+            return new SandboxResult(sessionId, output.ToString(), newFiles);
         }
         catch (Exception ex)
         {
@@ -53,11 +51,13 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
         }
     }
 
-    public async Task<string> ExecuteCommand(string command, string? directoryPath = null, CancellationToken cancellationToken = default)
+    public async Task<SandboxResult> ExecuteCommand(string command, string? directoryPath = null, CancellationToken cancellationToken = default)
     {
         var sessionId = await EnsureSession(cancellationToken);
         try
         {
+            var filesBefore = await GetSandboxFileState(sessionId, cancellationToken);
+
             var response = await agentCore.InvokeCodeInterpreterAsync(new InvokeCodeInterpreterRequest
             {
                 CodeInterpreterIdentifier = codeInterpreterId,
@@ -70,16 +70,15 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
                 }
             }, cancellationToken);
 
-            var result = string.Empty;
+            var output = new StringBuilder();
             await foreach (var message in response.Stream.WithCancellation(cancellationToken))
-            {
-                if (message is CodeInterpreterResult resultMessage)
-                    foreach (var content in resultMessage.Content)
-                        result += content.Text;
-            }
+                if (message is CodeInterpreterResult r)
+                    foreach (var content in r.Content)
+                        output.Append(content.Text);
 
-            logger.LogInformation("ExecuteCommand {Command} result: {Result}", command, result);
-            return result;
+            var newFiles = await DetectNewFiles(sessionId, filesBefore, cancellationToken);
+            logger.LogInformation("ExecuteCommand {Command} result: {Result}", command, output);
+            return new SandboxResult(sessionId, output.ToString(), newFiles);
         }
         catch (Exception ex)
         {
@@ -88,7 +87,7 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
         }
     }
 
-    public async Task WriteFileIfNew(string path, string content, CancellationToken cancellationToken = default)
+    public async Task WriteFilesIfNew(IEnumerable<(string path, string content)> files, CancellationToken cancellationToken = default)
     {
         const string uploadedFilesKey = "code_interpreter_uploaded_files";
         var runContext = AIAgent.CurrentRunContext
@@ -102,28 +101,106 @@ public class CodeInterpreter(IAmazonBedrockAgentCore agentCore, ILogger<CodeInte
             runContext.RunOptions.AdditionalProperties[uploadedFilesKey] = uploadedFiles;
         }
 
-        if (uploadedFiles.Add(path))
-        {
-            await WriteFile(path, content, cancellationToken);
-            logger.LogDebug("Uploaded -> {Path}", path);
-        }
+        var toUpload = files.Where(f => uploadedFiles.Add(f.path)).ToList();
+        if (toUpload.Count > 0)
+            await WriteFiles(toUpload, cancellationToken);
     }
 
-    public async Task WriteFile(string path, string content, CancellationToken cancellationToken = default)
+    public async Task WriteFiles(IEnumerable<(string path, string content)> files, CancellationToken cancellationToken = default)
     {
         var sessionId = await EnsureSession(cancellationToken);
+        var blocks = files.Select(f => new InputContentBlock { Path = f.path, Text = f.content }).ToList();
         var response = await agentCore.InvokeCodeInterpreterAsync(new InvokeCodeInterpreterRequest
         {
             CodeInterpreterIdentifier = codeInterpreterId,
             SessionId = sessionId,
             Name = ToolName.WriteFiles,
-            Arguments = new ToolArguments
-            {
-                Content = [new InputContentBlock { Path = path, Text = content }],
-            }
+            Arguments = new ToolArguments { Content = blocks }
         }, cancellationToken);
         await foreach (var _ in response.Stream.WithCancellation(cancellationToken)) { }
-        logger.LogDebug("Wrote file to sandbox: {Path}", path);
+        logger.LogDebug("Wrote {Count} file(s) to sandbox", blocks.Count);
+    }
+
+    private async Task<Dictionary<string, SandboxFileContent>> DetectNewFiles(
+        string sessionId, Dictionary<string, string> filesBefore, CancellationToken cancellationToken)
+    {
+        var filesAfter = await GetSandboxFileState(sessionId, cancellationToken);
+        var changedPaths = filesAfter
+            .Where(kvp => !filesBefore.TryGetValue(kvp.Key, out var before) || before != kvp.Value)
+            .Select(kvp => kvp.Key)
+            .ToList();
+        if (changedPaths.Count == 0) return [];
+        var newFiles = await ReadFilesCore(sessionId, changedPaths, cancellationToken);
+        if (newFiles.Count > 0)
+            logger.LogInformation("Detected {Count} new/modified sandbox file(s)", newFiles.Count);
+        return newFiles;
+    }
+
+    private async Task<Dictionary<string, string>> GetSandboxFileState(string sessionId, CancellationToken cancellationToken)
+    {
+        var response = await agentCore.InvokeCodeInterpreterAsync(new InvokeCodeInterpreterRequest
+        {
+            CodeInterpreterIdentifier = codeInterpreterId,
+            SessionId = sessionId,
+            Name = ToolName.ListFiles,
+            Arguments = new ToolArguments { DirectoryPath = "." }
+        }, cancellationToken);
+
+        // ListFiles returns resource_link blocks: Name = filename, Uri = file:///./name.
+        // Size is never populated, so we can only detect new files (not modifications).
+        var state = new Dictionary<string, string>();
+        await foreach (var message in response.Stream.WithCancellation(cancellationToken))
+        {
+            if (message is CodeInterpreterResult r)
+                foreach (var c in r.Content ?? [])
+                    if (c.Name is { Length: > 0 } name && c.Uri is { Length: > 0 } uri)
+                        state[name] = uri;
+        }
+        return state;
+    }
+
+    public async Task<Dictionary<string, SandboxFileContent>> ReadFiles(IEnumerable<string> paths, CancellationToken cancellationToken = default)
+    {
+        var sessionId = await EnsureSession(cancellationToken);
+        return await ReadFilesCore(sessionId, paths, cancellationToken);
+    }
+
+    private async Task<Dictionary<string, SandboxFileContent>> ReadFilesCore(string sessionId, IEnumerable<string> paths, CancellationToken cancellationToken)
+    {
+        var response = await agentCore.InvokeCodeInterpreterAsync(new InvokeCodeInterpreterRequest
+        {
+            CodeInterpreterIdentifier = codeInterpreterId,
+            SessionId = sessionId,
+            Name = ToolName.ReadFiles,
+            Arguments = new ToolArguments { Paths = [.. paths] }
+        }, cancellationToken);
+
+        // Content is in c.Resource; top-level c.Text/c.Data are always null for ReadFiles.
+        // Text files: Resource.Text. Binary files: Resource.Blob (stream). Uri: "file:///filename".
+        var result = new Dictionary<string, SandboxFileContent>();
+        await foreach (var message in response.Stream.WithCancellation(cancellationToken))
+        {
+            if (message is not CodeInterpreterResult r) continue;
+            foreach (var c in r.Content ?? [])
+            {
+                var resource = c.Resource;
+                if (resource is null) continue;
+
+                var path = resource.Uri?.StartsWith("file:///") == true ? resource.Uri[8..] : resource.Uri;
+                if (string.IsNullOrEmpty(path)) continue;
+
+                MemoryStream? blob = null;
+                if (resource.Blob is MemoryStream ms && ms.Length > 0)
+                {
+                    ms.Position = 0;
+                    blob = ms;
+                }
+
+                if (blob is not null || resource.Text is { Length: > 0 })
+                    result[path] = new SandboxFileContent(path, resource.Text, blob);
+            }
+        }
+        return result;
     }
 
     private async Task<string> EnsureSession(CancellationToken cancellationToken)

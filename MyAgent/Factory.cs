@@ -82,9 +82,9 @@ public static class Factory
             AIFunctionFactory.Create(
                 method: async (IServiceProvider services, string code) =>
                 {
-                    var codeInterpreter = services.GetRequiredService<CodeInterpreter>();
-                    var result = await codeInterpreter.ExecuteCode(code);
-                    return result;
+                    var result = await services.GetRequiredService<CodeInterpreter>().ExecuteCode(code);
+                    await SaveNewFiles(result);
+                    return result.Output;
                 },
                 name: "code_interpreter",
                 description: "Execute Python code using the code interpreter."
@@ -132,14 +132,16 @@ public static class Factory
                 var sandboxScriptsBase = $"skills/{skill.Frontmatter.Name}/scripts";
                 var scriptsDir = Path.Combine(skill.Path, "scripts");
                 string? sandboxScriptPath = null;
+
+                var filesToUpload = new List<(string path, string content)>();
                 foreach (var filePath in Directory.EnumerateFiles(scriptsDir, "*", SearchOption.AllDirectories))
                 {
                     var relativePath = Path.GetRelativePath(scriptsDir, filePath).Replace('\\', '/');
                     var targetPath = $"{sandboxScriptsBase}/{relativePath}";
-                    var fileContent = await File.ReadAllTextAsync(filePath, cancellationToken);
-                    await codeInterpreter.WriteFileIfNew(path: targetPath, content: fileContent, cancellationToken: cancellationToken);
+                    filesToUpload.Add((targetPath, await File.ReadAllTextAsync(filePath, cancellationToken)));
                     if (filePath == script.FullPath) sandboxScriptPath = targetPath;
                 }
+                await codeInterpreter.WriteFilesIfNew(filesToUpload, cancellationToken);
                 sandboxScriptPath ??= $"{sandboxScriptsBase}/{Path.GetFileName(script.FullPath)}";
 
                 var commandLineParts = new List<string> { "python3", sandboxScriptPath };
@@ -152,11 +154,34 @@ public static class Factory
 
                 logger.LogInformation("Running script {ScriptName}: {Command}", script.Name, command);
 
-                return await codeInterpreter.ExecuteCommand(command, directoryPath: sandboxScriptsBase, cancellationToken);
+                var result = await codeInterpreter.ExecuteCommand(command, directoryPath: sandboxScriptsBase, cancellationToken);
+                await SaveNewFiles(result);
+                return result.Output;
             })
             .Build();
 
         return provider;
     }
 #pragma warning restore MAAI001
+
+    static async Task SaveNewFiles(SandboxResult result)
+    {
+        if (result.NewFiles.Count == 0) return;
+        var outputDir = Path.Combine("NewFiles", $"{result.SessionId}_{DateTimeOffset.UtcNow:yyyyMMdd_HHmmss}");
+        Directory.CreateDirectory(outputDir);
+        foreach (var (path, file) in result.NewFiles)
+        {
+            var localPath = Path.Combine(outputDir, path.TrimStart('/'));
+            Directory.CreateDirectory(Path.GetDirectoryName(localPath) ?? outputDir);
+            if (file.Blob is { } blob)
+            {
+                using var fs = File.Create(localPath);
+                await blob.CopyToAsync(fs);
+            }
+            else if (file.Text is { } text)
+            {
+                await File.WriteAllTextAsync(localPath, text);
+            }
+        }
+    }
 }
