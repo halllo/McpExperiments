@@ -20,13 +20,13 @@ using Microsoft.IdentityModel.JsonWebTokens;
 
 // Remote tool
 var http = new HttpClient();
-File.Delete("token_cache.json");
+//File.Delete("token_cache.json");
 var tokenCache = new TokenCacheFile("token_cache.json");
 var httpClientTransport = new HttpClientTransport(new()
 {
 	Name = "Vibe MCP Server",
-	//Endpoint = new Uri("https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp"),
-	Endpoint = new Uri("https://my-mcp-server-mcpexperiments.dev.localhost:7296/mcp"),
+	Endpoint = new Uri("https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp"),
+	// Endpoint = new Uri("https://my-mcp-server-mcpexperiments.dev.localhost:7296/mcp"),
 	//Endpoint = new Uri("https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp"),
 	//Endpoint = new Uri("https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp"),
 	TransportMode = HttpTransportMode.StreamableHttp,
@@ -49,6 +49,10 @@ Console.WriteLine(JsonSerializer.Serialize(jwt.Claims.Select(c => new { c.Type, 
 
 var mcpClients = new[] { /*mcpClient1,*/ mcpClient2,/* mcpClient3 */ };
 
+foreach (var mcpClient in mcpClients)
+{
+	Console.WriteLine($"Connected to MCP server: {JsonSerializer.Serialize(mcpClient.ServerInfo)}");
+}
 
 
 
@@ -121,10 +125,76 @@ catch (Exception ex)
 	Console.WriteLine($"Error getting resource templates: {ex.Message}");
 }
 
+// ── File Uploads ─────────────────────────────────────────────────────────────
+await UploadFileAsync(mcpClient2,
+	"/Users/manuel.naujoks/Downloads/Vortrag_VonChatGPTzuAgenticAI_Meetup_inovex.pdf",
+	"application/pdf");
+
+await UploadFileAsync(mcpClient2,
+	"test.txt",
+	"text/plain",
+	"Hello from the MCP console client!\nThis is a plain-text upload test.");
+
+await UploadFileAsync(mcpClient2,
+	"test.md",
+	"text/markdown",
+	"# MCP Upload Test\n\nThis is a **Markdown** upload test.\n\n- item 1\n- item 2\n");
+// ─────────────────────────────────────────────────────────────────────────────
+
 Console.WriteLine("Press enter to end.");
 Console.ReadLine();
 
 foreach (var mcpClient in mcpClients)
 {
 	await mcpClient.DisposeAsync();
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+static async Task UploadFileAsync(
+	McpClient client,
+	string filePath,
+	string contentType,
+	string? inlineContent = null)
+{
+	Console.WriteLine();
+	Console.WriteLine($"Uploading {contentType} file...");
+
+	byte[] fileBytes;
+	if (inlineContent is not null)
+	{
+		// Write the inline content to a temp file so we also have it locally.
+		await File.WriteAllTextAsync(filePath, inlineContent, System.Text.Encoding.UTF8);
+		fileBytes = System.Text.Encoding.UTF8.GetBytes(inlineContent);
+	}
+	else
+	{
+		fileBytes = await File.ReadAllBytesAsync(filePath);
+	}
+
+	Console.WriteLine($"  Sending '{filePath}' ({fileBytes.Length:N0} bytes)...");
+
+	try
+	{
+		var result = await client.CallToolAsync(
+			"upload",
+			new Dictionary<string, object?>
+			{
+				["file"]        = fileBytes,
+				["fileName"]    = Path.GetFileName(filePath),
+				["contentType"] = contentType,
+			});
+
+		foreach (var block in result.Content.OfType<TextContentBlock>())
+			Console.WriteLine($"  Server: {block.Text}");
+
+		if (result.IsError == true)
+			Console.WriteLine("  Upload returned an error flag.");
+	}
+	catch (Exception ex)
+	{
+		Console.WriteLine($"  Error: {ex.Message}");
+	}
 }

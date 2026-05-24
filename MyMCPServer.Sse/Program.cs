@@ -90,6 +90,7 @@ builder.Services.AddMcpServer(o =>
 		o.Stateless = true;
 	})
 	.WithTools<VibeTool>()
+	.WithTools<UploadTool>()
 	;
 
 builder.Services.AddCors(options =>
