@@ -35,7 +35,7 @@ namespace IdentityServer.Pages.ServerSideSessions
         [BindProperty(SupportsGet = true)]
         public string? Prev { get; set; }
 
-        public async Task OnGet()
+        public async Task OnGet(CancellationToken ct)
         {
             if (_sessionManagementService != null)
             {
@@ -46,20 +46,20 @@ namespace IdentityServer.Pages.ServerSideSessions
                     DisplayName = DisplayNameFilter,
                     SessionId = SessionIdFilter,
                     SubjectId = SubjectIdFilter
-                });
+                }, ct);
             }
         }
 
         [BindProperty]
         public string? SessionId { get; set; }
 
-        public async Task<IActionResult> OnPost()
+        public async Task<IActionResult> OnPost(CancellationToken ct)
         {
             ArgumentNullException.ThrowIfNull(_sessionManagementService);
 
-            await _sessionManagementService.RemoveSessionsAsync(new RemoveSessionsContext { 
+            await _sessionManagementService.RemoveSessionsAsync(new RemoveSessionsContext {
                 SessionId = SessionId,
-            });
+            }, ct);
             return RedirectToPage("/ServerSideSessions/Index", new { Token, DisplayNameFilter, SessionIdFilter, SubjectIdFilter, Prev });
         }
     }

@@ -22,10 +22,10 @@ public class Index : PageModel
         _environment = environment;
     }
         
-    public async Task OnGet(string? errorId)
+    public async Task OnGet(string? errorId, CancellationToken ct)
     {
         // retrieve error details from identityserver
-        var message = await _interaction.GetErrorContextAsync(errorId);
+        var message = await _interaction.GetErrorContextAsync(errorId, ct);
         if (message != null)
         {
             View.Error = message;

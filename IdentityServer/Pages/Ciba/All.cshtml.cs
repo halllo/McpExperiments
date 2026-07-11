@@ -21,8 +21,8 @@ public class AllModel : PageModel
         _backchannelAuthenticationInteraction = backchannelAuthenticationInteractionService;
     }
 
-    public async Task OnGet()
+    public async Task OnGet(CancellationToken ct)
     {
-        Logins = await _backchannelAuthenticationInteraction.GetPendingLoginRequestsForCurrentUserAsync();
+        Logins = await _backchannelAuthenticationInteraction.GetPendingLoginRequestsForCurrentUserAsync(ct);
     }
 }

@@ -7,7 +7,7 @@ namespace IdentityServer;
 
 public sealed class CustomProfileService : IProfileService
 {
-    public Task GetProfileDataAsync(ProfileDataRequestContext context)
+    public Task GetProfileDataAsync(ProfileDataRequestContext context, CancellationToken ct)
     {
         AddClaim(context, JwtClaimTypes.Name);
         AddClaim(context, JwtClaimTypes.GivenName);
@@ -23,7 +23,7 @@ public sealed class CustomProfileService : IProfileService
         }
     }
 
-    public Task IsActiveAsync(IsActiveContext context)
+    public Task IsActiveAsync(IsActiveContext context, CancellationToken ct)
     {
         return Task.CompletedTask;
     }
