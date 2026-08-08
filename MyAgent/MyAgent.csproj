@@ -8,16 +8,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AWSSDK.BedrockAgentCore" Version="4.0.100.3" />
-    <PackageReference Include="AWSSDK.BedrockAgentCoreControl" Version="4.0.101" />
-    <PackageReference Include="AWSSDK.Extensions.Bedrock.MEAI" Version="4.0.101.3" />
-    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.13.0" />
-    <PackageReference Include="Microsoft.Extensions.AI" Version="10.7.0" />
-    <PackageReference Include="Microsoft.Agents.AI.DevUI" Version="1.13.0-preview.260703.1" />
+    <PackageReference Include="AWSSDK.BedrockAgentCore" Version="4.0.103" />
+    <PackageReference Include="AWSSDK.BedrockAgentCoreControl" Version="4.0.108" />
+    <PackageReference Include="AWSSDK.Extensions.Bedrock.MEAI" Version="4.0.101.7" />
+    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.17.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.8.3" />
+    <PackageReference Include="Microsoft.Agents.AI.DevUI" Version="1.17.0-preview.260804.1" />
     <!-- <ProjectReference Include="..\..\microsoft-agent-framework\dotnet\src\Microsoft.Agents.AI.DevUI\Microsoft.Agents.AI.DevUI.csproj" /> -->
 
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.16.11" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.16.18" />
   </ItemGroup>
   
   <ItemGroup>
