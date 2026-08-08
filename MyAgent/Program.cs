@@ -49,6 +49,8 @@ var amazonbedrock = builder.AddAIAgent("amazonbedrock", (sp, key) => Factory.Cre
     services: sp,
     tools: Factory.GetTools()));
 
+var architectureCouncil = builder.AddArchitectureCouncil();
+
 
 var app = builder.Build();
 

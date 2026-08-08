@@ -9,6 +9,19 @@ public static class Program
 {
     public static IHost BuildHost() => CreateHostBuilder().Build();
 
+    /// <summary>
+    /// Host wired up the same way MyAgent's own Program.cs wires up its workflows, so tests
+    /// exercise the real DI registration rather than a hand-built workflow.
+    /// </summary>
+    public static IHost BuildWorkflowHost()
+    {
+        var builder = Host.CreateApplicationBuilder();
+        builder.Configuration.AddJsonFile("appsettings.local.json", optional: true);
+        builder.Configuration.AddUserSecrets(typeof(Program).Assembly);
+        builder.AddArchitectureCouncil();
+        return builder.Build();
+    }
+
     static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
         .ConfigureAppConfiguration(cfg =>
         {

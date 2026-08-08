@@ -39,7 +39,12 @@ public static class Factory
             ;
     }
 
-    public static AIAgent CreateAgent(string name, IChatClient chatClient, IServiceProvider services, IChatReducer? reducer = null, IList<AITool>? tools = null)
+    /// <param name="autoApproveSkillTools">
+    /// Bypasses the approval prompts for the skill tools (load_skill, read_skill_resource, run_skill_script).
+    /// Intended for automated tests, where nobody is around to approve. Leave <see langword="false"/> for DevUI
+    /// so skill invocations still ask for confirmation.
+    /// </param>
+    public static AIAgent CreateAgent(string name, IChatClient chatClient, IServiceProvider services, IChatReducer? reducer = null, IList<AITool>? tools = null, bool autoApproveSkillTools = false)
     {
         var applicationName = services.GetRequiredService<IHostEnvironment>().ApplicationName;
         return chatClient
@@ -54,7 +59,7 @@ public static class Factory
                         Tools = tools,
                     },
                     ChatHistoryProvider = new FileSystemChatHistoryProvider(reducer: reducer), // DevUI uses InMemoryResponsesService, which stores/loads directly with IConversationStorage.
-                    AIContextProviders = [CreateSkillsProvider()],
+                    AIContextProviders = [CreateSkillsProvider(autoApproveSkillTools)],
                 },
                 services: services)
             .AsBuilder()
@@ -93,7 +98,8 @@ public static class Factory
     }
 
 #pragma warning disable MAAI001
-    public static AgentSkillsProvider CreateSkillsProvider()
+    /// <param name="autoApproveSkillTools">See <see cref="CreateAgent"/>.</param>
+    public static AgentSkillsProvider CreateSkillsProvider(bool autoApproveSkillTools = false)
     {
         var converterSkill = new AgentInlineSkill(
             name: "unit-converter",
@@ -119,6 +125,12 @@ public static class Factory
             });
 
         var provider = new AgentSkillsProviderBuilder()
+            .UseOptions(o =>
+            {
+                o.DisableLoadSkillApproval = autoApproveSkillTools;
+                o.DisableReadSkillResourceApproval = autoApproveSkillTools;
+                o.DisableRunSkillScriptApproval = autoApproveSkillTools;
+            })
             .UseSkills([converterSkill])
             .UseFileSkills([
                 "/Users/manuel.naujoks/Projects/anthropics-skills/skills/pdf",

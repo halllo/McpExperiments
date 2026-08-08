@@ -28,10 +28,11 @@ public sealed class PdfSkillTests
     }
 
     static AIAgent CreateAgent(IServiceProvider services) =>Factory.CreateAgent(
-        name: "pdf-test", 
-        chatClient: Factory.OpenAI(services.GetRequiredService<IConfiguration>(), services), 
+        name: "pdf-test",
+        chatClient: Factory.OpenAI(services.GetRequiredService<IConfiguration>(), services),
         services: services,
-        tools: Factory.GetTools());
+        tools: Factory.GetTools(),
+        autoApproveSkillTools: true);
 
     /// <summary>
     /// check_fillable_fields.py on a plain text PDF → "does not have fillable form fields"
