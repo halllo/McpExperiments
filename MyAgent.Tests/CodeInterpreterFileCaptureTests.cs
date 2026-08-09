@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace MyAgent.Tests;
 
 [TestClass, DoNotParallelize]
+[TestCategory("Live")]   // makes real, paid model calls
 public sealed class CodeInterpreterFileCaptureTests
 {
     public required TestContext TestContext { get; set; }

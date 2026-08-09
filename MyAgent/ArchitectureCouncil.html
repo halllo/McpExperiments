@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'none'; base-uri 'none'" />
+<title>Workflow</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9A%96%EF%B8%8F</text></svg>" />
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7fb;
+    --panel: #ffffff;
+    --panel-2: #fbfbfd;
+    --text: #14161c;
+    --muted: #5c6373;
+    --border: #e3e6ee;
+    /* --border is decorative, so it may be faint. A control's edge is the only thing that says
+       "you can type here", which WCAG 1.4.11 puts at 3:1 against its surroundings. */
+    --control-border: #8b90a0;
+    --shadow: 0 1px 2px rgba(16, 20, 35, .05), 0 8px 24px rgba(16, 20, 35, .06);
+    --brand: #6d28d9;
+    --on-brand: #ffffff;
+    --danger: #b91c1c;
+    --ok: #047857;
+    --ok-strong: #065f46;
+    --radius: 14px;
+    /* Accents are handed out to participants in the order they first speak.
+       Light values are chosen to clear 4.5:1 on --panel. */
+    --a1: #0369a1;
+    --a2: #047857;
+    --a3: #6d28d9;
+    --a4: #b45309;
+    --a5: #be185d;
+    --a6: #0e7490;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1017;
+      --panel: #171a23;
+      --panel-2: #1c2029;
+      --text: #e8eaf0;
+      --muted: #9aa2b4;
+      --border: #272c38;
+      --control-border: #5a6274;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+      --brand: #a78bfa;
+      --on-brand: #120d1c;
+      --danger: #f87171;
+      --ok: #34d399;
+      --ok-strong: #34d399;
+      --a1: #38bdf8;
+      --a2: #34d399;
+      --a3: #a78bfa;
+      --a4: #fbbf24;
+      --a5: #f472b6;
+      --a6: #22d3ee;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 920px; margin: 0 auto; padding: 40px 20px 80px; }
+
+  h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -.02em; overflow-wrap: anywhere; }
+  .page-head { margin-bottom: 28px; }
+  .page-head p { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  form { padding: 18px; display: flex; gap: 10px; flex-wrap: wrap; margin: 0; }
+  input[type=text] {
+    flex: 1 1 320px;
+    min-width: 0;
+    padding: 12px 14px;
+    font: inherit;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--control-border);
+    border-radius: 10px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input[type=text]:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
+  }
+  button {
+    padding: 12px 20px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--on-brand);
+    background: var(--brand);
+    border: 0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: filter .15s;
+  }
+  button:hover { filter: brightness(1.08); }
+  #go.running { background: var(--danger); }
+
+  .examples { padding: 0 18px 16px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .examples:empty { display: none; }
+  .examples span { color: var(--muted); font-size: 13px; }
+  .chip {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted);
+    background: var(--panel-2);
+    border: 1px solid var(--control-border);
+    border-radius: 999px;
+    padding: 5px 12px;
+    cursor: pointer;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+  .chip:hover { color: var(--text); border-color: var(--muted); filter: none; }
+
+  #panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 22px 0; }
+  #panel:empty { display: none; }
+  .panelist { padding: 13px 14px; display: flex; gap: 11px; align-items: center; animation: rise .25s ease-out; }
+  .panelist > div { min-width: 0; }
+  .panelist .who { font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+  .panelist .said { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+
+  .avatar {
+    flex: none;
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; letter-spacing: .02em;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  #status {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 14px;
+    margin: 6px 2px 18px;
+  }
+  #status.on { display: flex; }
+  #status-message { overflow-wrap: anywhere; }
+  .pulse {
+    width: 8px; height: 8px; border-radius: 50%; flex: none;
+    background: var(--brand);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+
+  #error {
+    display: none;
+    padding: 14px 16px;
+    margin-top: 18px;
+    border-radius: 10px;
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+    overflow-wrap: anywhere;
+  }
+  #error.on { display: block; }
+  #notice {
+    display: none;
+    margin-top: 18px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  #notice.on { display: block; }
+
+  #runlog { display: flex; flex-direction: column; gap: 14px; }
+
+  .turn {
+    padding: 16px 18px;
+    border-left: 3px solid var(--accent);
+    animation: rise .28s ease-out;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .turn .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .turn .name { margin: 0; font-weight: 600; font-size: 14px; color: var(--accent); overflow-wrap: anywhere; }
+
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tools:empty { display: none; }
+  .tools:not(:empty) { margin-bottom: 10px; }
+  .tool {
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    overflow-wrap: anywhere;
+  }
+  .tool::before { content: "⚙ "; opacity: .7; }
+
+  /* What a participant weighed before it spoke. Collapsed by default: the position is the point,
+     and a run carries one of these per panelist. */
+  .caucus { margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+  .caucus summary { cursor: pointer; width: fit-content; }
+  .caucus summary:hover { color: var(--text); }
+  .caucus summary:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+  .caucus .drafts {
+    margin-top: 8px;
+    padding-left: 11px;
+    border-left: 2px solid var(--border);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .say { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .say strong { font-weight: 650; }
+
+  .dots span {
+    display: inline-block; width: 6px; height: 6px; margin-right: 4px;
+    border-radius: 50%; background: var(--muted);
+    animation: blink 1.4s infinite both;
+  }
+  .dots span:nth-child(2) { animation-delay: .2s; }
+  .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: .9; } }
+
+  .caret {
+    display: inline-block; width: 7px; height: 1.05em;
+    vertical-align: text-bottom; margin-left: 2px;
+    background: var(--accent);
+    animation: caret 1s steps(2) infinite;
+  }
+  @keyframes caret { 50% { opacity: 0; } }
+
+  .result {
+    margin-top: 22px;
+    padding: 22px;
+    border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 7%, var(--panel)), var(--panel));
+    animation: rise .3s ease-out;
+  }
+  .result .kicker {
+    font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--brand); margin-bottom: 10px;
+  }
+  .result h2 { margin: 0 0 12px; font-size: 20px; letter-spacing: -.01em; overflow-wrap: anywhere; }
+  .result h2:empty { display: none; }
+  .result .badge {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    color: var(--muted);
+    background: color-mix(in srgb, var(--muted) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+    border-radius: 999px; padding: 3px 11px; margin-bottom: 12px;
+    overflow-wrap: anywhere;
+  }
+  .result .badge:empty { display: none; }
+  .result .badge.good { color: var(--ok-strong); background: color-mix(in srgb, var(--ok) 13%, transparent); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+  .result .body { margin: 0; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .result .body:empty { display: none; }
+  .result.empty .kicker { color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .turn, .panelist, .result { animation: none; }
+    button, input[type=text] { transition: none; }
+    .pulse, .caret { animation: none; opacity: 1; }
+    .dots span { animation: none; opacity: .6; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-head">
+    <h1 id="title">Workflow</h1>
+    <p id="subtitle"></p>
+  </div>
+
+  <div class="card">
+    <form id="form">
+      <label class="visually-hidden" for="topic" id="topic-label">What should the workflow work on?</label>
+      <input id="topic" type="text" autocomplete="off" maxlength="500" required
+             placeholder="What should the workflow work on?" />
+      <button id="go" type="submit">Run</button>
+    </form>
+    <div class="examples" id="examples"></div>
+  </div>
+
+  <div id="panel"></div>
+  <div id="status"><span class="pulse"></span><span id="status-message" aria-live="polite"></span><span id="status-elapsed" aria-hidden="true"></span></div>
+  <!-- role=log announces what gets appended without re-reading the whole debate. -->
+  <div id="runlog" role="log" aria-label="Debate transcript"></div>
+  <!-- Deliberately not a live region: it repeats the last turn verbatim, so announcing it would
+       read the whole ruling a second time. #notice carries a short "result ready" instead. -->
+  <div id="result"></div>
+  <div id="notice" role="status"></div>
+  <!-- Announcements a sighted reader already gets from the page itself. Visually hidden rather than
+       display:none, so it is still exposed to assistive technology. -->
+  <div id="announce" class="visually-hidden" role="status" aria-live="polite"></div>
+  <div id="error" role="alert"></div>
+</div>
+
+<script>
+  const ACCENTS = ["var(--a1)", "var(--a2)", "var(--a3)", "var(--a4)", "var(--a5)", "var(--a6)"];
+  const calm = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const el = id => document.getElementById(id);
+  const form = el("form"), topicInput = el("topic"), goButton = el("go"), examples = el("examples");
+  const panel = el("panel"), runlog = el("runlog"), resultBox = el("result");
+  const statusBox = el("status"), statusMessage = el("status-message"), statusElapsed = el("status-elapsed");
+  const errorBox = el("error"), noticeBox = el("notice"), announceBox = el("announce");
+
+  const base = window.location.pathname.replace(/\/+$/, "");
+
+  // A run that produces nothing for this long is treated as dead. The server's own budget cannot
+  // help here: its RUN_ERROR needs a working connection to arrive on, and the case this covers is a
+  // connection that stopped delivering without ever closing.
+  const IDLE_LIMIT_MS = 120000;
+
+  // One irreversible action per click. Below this, a second click is a bounce, not an intent —
+  // without it a double-click cancelled the run and a third click started a second paid one.
+  const CLICK_DEAD_TIME_MS = 500;
+
+  let controller = null;
+  let running = false;
+  let participants = new Map();    // speaker label -> { label, accent, saidEl }
+  let messageTurns = new Map();    // AG-UI messageId -> the turn it belongs to
+  let turnList = [];               // turns in the order they first spoke
+  let lastTurn = null;
+  let toolCallIds = new Set();     // TOOL_CALL_START may legally repeat for one call
+  let pendingReasoning = "";       // deliberation, waiting for the speaker it belongs to to be named
+  let startedAt = 0, ticker = null, message = "";
+  let pinnedToBottom = true, lastFollow = 0, lastSubmitAt = 0, idleTimer = null;
+
+  // crypto.randomUUID needs a secure context, which a plain-http LAN address is not.
+  const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+
+  // Everything the page says about the workflow comes from the workflow.
+  fetch(`${base}/info`)
+    .then(response => response.ok ? response.json() : null)
+    .then(info => info && describe(info))
+    .catch(() => { /* the run's start event still titles the page */ });
+
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+
+    const now = Date.now();
+    if (now - lastSubmitAt < CLICK_DEAD_TIME_MS) return;
+    lastSubmitAt = now;
+
+    if (running) { teardown(); note("Stopped."); return; }
+    start(topicInput.value.trim());
+  });
+
+  window.addEventListener("pagehide", () => teardown());
+
+  // Following the run is only welcome while the reader is at the bottom. Reading the scroll position
+  // itself is the only reliable signal: a keydown handler fires *before* the scroll it causes, and a
+  // scrollbar drag, find-in-page or Cmd+Up fires no key or wheel event at all. follow() scrolls to
+  // the bottom, so its own event re-pins — which is why follow() must not animate (see below).
+  window.addEventListener("scroll", () => { pinnedToBottom = atBottom(); }, { passive: true });
+
+  function describe(info) {
+    if (info.name) { el("title").textContent = info.name; document.title = info.name; }
+    el("subtitle").textContent = info.description || "";
+
+    if (info.prompt) {
+      topicInput.placeholder = info.prompt;
+      el("topic-label").textContent = info.prompt;
+    }
+    if (info.maxTopicLength) topicInput.maxLength = info.maxTopicLength;
+
+    if (Array.isArray(info.samples) && info.samples.length) {
+      const intro = document.createElement("span");
+      intro.textContent = "Try:";
+      examples.replaceChildren(intro);
+      for (const sample of info.samples) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip";
+        chip.textContent = sample;
+        // Assigning .value bypasses maxlength, so clamp to what the server will accept.
+        chip.addEventListener("click", () => {
+          topicInput.value = sample.slice(0, topicInput.maxLength > 0 ? topicInput.maxLength : sample.length);
+          topicInput.setAttribute("aria-invalid", "false");
+          topicInput.focus();
+        });
+        examples.appendChild(chip);
+      }
+    }
+  }
+
+  async function start(topic) {
+    // `required` covers an empty field, but a field of spaces satisfies it and still has no topic.
+    if (!topic) {
+      topicInput.setAttribute("aria-invalid", "true");
+      topicInput.focus();
+      note("Enter a topic to run.");
+      return;
+    }
+
+    topicInput.setAttribute("aria-invalid", "false");
+
+    teardown();
+    panel.replaceChildren();
+    runlog.replaceChildren();
+    resultBox.replaceChildren();
+    errorBox.classList.remove("on");
+    errorBox.textContent = "";
+    noticeBox.classList.remove("on");
+    noticeBox.textContent = "";       // a stale "Stopped." must not sit in a live region mid-run
+    announceBox.textContent = "";
+    participants = new Map();
+    messageTurns = new Map();
+    turnList = [];
+    toolCallIds = new Set();
+    pendingReasoning = "";
+    lastTurn = null;
+    pinnedToBottom = true;
+
+    running = true;
+    goButton.textContent = "Stop";
+    goButton.classList.add("running");
+    startedAt = Date.now();
+    setStatus("Starting…");
+    ticker = setInterval(() => tick(), 1000);
+    touch();
+
+    controller = new AbortController();
+    let terminated = false;
+
+    try {
+      // AG-UI runs are POSTed: the input is a document, not a query string. Unlike EventSource,
+      // fetch never reconnects on its own, so a stream that dies cannot start a second paid run.
+      const response = await fetch(`${base}/agui`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "accept": "text/event-stream" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          threadId: newId(),
+          runId: newId(),
+          messages: [{ id: newId(), role: "user", content: topic }],
+          tools: [],
+          context: [],
+        }),
+      });
+
+      if (!response.ok) {
+        stop(await failureText(response));
+        return;
+      }
+      if (!response.body) {
+        stop("This browser cannot read a streamed response.");
+        return;
+      }
+
+      for await (const event of aguiEvents(response.body)) {
+        handle(event);
+        if (event.type === "RUN_FINISHED" || event.type === "RUN_ERROR") { terminated = true; break; }
+      }
+
+      // The protocol always ends a run explicitly. Reaching here without that means the stream was
+      // cut — reporting it as a finished run would be the one mistake worth avoiding.
+      if (!terminated) {
+        sealAll();
+        stop("The connection to the workflow ended before the run finished.");
+      }
+    } catch (failure) {
+      if (failure.name === "AbortError") return;   // the reader pressed Stop or left the page
+      console.error(failure);
+      sealAll();
+      stop(turnList.length
+        ? "The connection to the workflow was lost."
+        : "Could not reach the workflow.");
+    }
+  }
+
+  // A minimal server-sent-events reader: frames are separated by a blank line, and a frame's
+  // payload is its `data:` lines joined. Anything else the protocol may add is ignored by design.
+  async function* aguiEvents(body) {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    const boundary = /\r?\n\r?\n/;
+    let buffer = "";
+
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+
+        if (done) {
+          // A complete frame that was never terminated by a blank line. ASP.NET always sends one,
+          // so this only salvages a run that passed through something less careful.
+          const trailing = parseFrame(buffer);
+          if (trailing) yield trailing;
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+
+        let match;
+        while ((match = boundary.exec(buffer))) {
+          const frame = buffer.slice(0, match.index);
+          buffer = buffer.slice(match.index + match[0].length);
+
+          const event = parseFrame(frame);
+          if (event) yield event;
+        }
+      }
+    } finally {
+      reader.cancel().catch(() => { /* already closed */ });
+    }
+  }
+
+  // One unreadable frame is not the end of the run. Dropping it costs a delta; throwing out of the
+  // generator costs everything after it, including the RUN_FINISHED that carries the result.
+  function parseFrame(frame) {
+    const data = frame
+      .split(/\r?\n/)
+      .filter(line => line.startsWith("data:"))
+      .map(line => line.slice(5).trimStart())
+      .join("\n");
+
+    if (!data) return null;      // comments, keep-alives, and `event:`/`id:`-only frames
+
+    try {
+      return JSON.parse(data);
+    } catch {
+      console.warn("Dropped an unreadable AG-UI frame.");
+      return null;
+    }
+  }
+
+  function setStatus(text) {
+    message = text;
+    statusBox.classList.add("on");   // a live region inside display:none announces nothing
+    // Assigning identical text still replaces the node, and a screen reader that does not diff a
+    // live region would repeat the same phrase every second for the length of the run.
+    if (statusMessage.textContent !== text) statusMessage.textContent = text;
+    tick();
+  }
+
+  // The once-a-second refresh touches only the elapsed counter, which is aria-hidden.
+  function tick() {
+    statusElapsed.textContent = `  ·  ${Math.round((Date.now() - startedAt) / 1000)}s`;
+  }
+
+  // A stream can stop delivering without closing — a dead NAT or load-balancer path never sends a
+  // FIN, so reader.read() waits forever and the page would pulse until the reader gave up.
+  function touch() {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      sealAll();
+      stop("The workflow stopped responding.");
+    }, IDLE_LIMIT_MS);
+  }
+
+  // The endpoint explains itself in a JSON body. statusText is empty over HTTP/2 — which is what
+  // Kestrel serves — so the status line on its own read "answered 400 ."
+  async function failureText(response) {
+    let detail = "";
+    try { detail = JSON.parse(await response.text())?.error ?? ""; } catch { /* not our JSON */ }
+
+    if (detail) return detail;
+
+    return `The workflow endpoint answered ${response.status}${response.statusText ? ` ${response.statusText}` : ""}.`;
+  }
+
+  // Standard AG-UI events. Anything the protocol carries that this view has no use for falls
+  // through untouched, so a richer workflow cannot break the page by saying more.
+  function handle(event) {
+    touch();   // any event at all proves the stream is still alive
+
+    switch (event.type) {
+      case "RUN_STARTED":
+        setStatus("Starting…");
+        break;
+
+      case "TEXT_MESSAGE_START": {
+        const turn = openMessage(event.messageId, event.name);
+        setStatus(`${turn.who.label} is running`);
+        break;
+      }
+
+      case "TEXT_MESSAGE_CONTENT": {
+        // Same fallback as TOOL_CALL_START: content for a message that never opened still belongs
+        // to whoever is speaking, and dropping it silently loses part of the answer.
+        const turn = messageTurns.get(event.messageId) ?? lastTurn;
+        if (!turn || !event.delta) break;
+        reopen(turn);
+        turn.raw += event.delta;
+        turn.lastRaw += event.delta;
+        append(turn, event.delta);
+        break;
+      }
+
+      case "TEXT_MESSAGE_END":
+        // Not the end of the turn: the same agent speaks again after a tool returns.
+        break;
+
+      case "TOOL_CALL_START": {
+        const turn = messageTurns.get(event.parentMessageId) ?? lastTurn;
+        if (!turn) break;
+
+        // The mapper may legally open the same call twice when its arguments arrive in pieces, and
+        // two chips for one call reads as two calls.
+        if (event.toolCallId && toolCallIds.has(event.toolCallId)) break;
+        if (event.toolCallId) toolCallIds.add(event.toolCallId);
+
+        reopen(turn);
+        const chip = document.createElement("span");
+        chip.className = "tool";
+        chip.textContent = event.toolCallName ?? "tool";
+        turn.toolsEl.appendChild(chip);
+        break;
+      }
+
+      // Deliberation: a participant's private team drafting before it speaks, or a reasoning model
+      // thinking before it answers. Both belong to the *next* speaker, and reasoning events carry
+      // no name — so it is buffered here and attached to the card the speaker opens. Naming a
+      // speaker in the status line would name the previous one.
+      case "REASONING_START":
+      case "REASONING_MESSAGE_START":
+        setStatus("Deliberating…");
+        break;
+
+      case "REASONING_MESSAGE_CONTENT":
+        if (event.delta) pendingReasoning += event.delta;
+        setStatus("Deliberating…");
+        break;
+
+      // Emitted by workflows that report their own structure. Nothing in this app sends these yet;
+      // naming the step keeps a pause between speakers legible when something does.
+      case "STEP_STARTED":
+        setStatus(`Running ${readable(event.stepName) || "a step"}`);
+        break;
+
+      case "ACTIVITY_SNAPSHOT":
+        setStatus(`Running ${readable(event.activityType) || "a step"}`);
+        break;
+
+      case "RUN_FINISHED":
+        sealAll();
+        // The last *message*, not the whole turn. A tool-calling agent opens its turn with a
+        // preamble ("Let me format that ruling…") and delivers the ADR in a second message, so
+        // using the turn's text made that throwaway sentence the headline of the page.
+        showResult(lastTurn ? (lastTurn.lastRaw.trim() ? lastTurn.lastRaw : lastTurn.raw) : "");
+        stop(null);
+        break;
+
+      case "RUN_ERROR":
+        sealAll();
+        stop(event.message || "The run failed.");
+        break;
+    }
+
+    follow();
+  }
+
+  // AG-UI reports one message per assistant message, and a tool-calling agent produces two: a
+  // preamble carrying the call, then its answer. Consecutive messages from the same speaker are
+  // therefore one turn, and one card.
+  function openMessage(messageId, name) {
+    const named = typeof name === "string" && name.length > 0;
+    const speaker = named ? name : "Agent";
+
+    // Merge only when the speaker was actually named. Falling back to a shared "Agent" literal made
+    // two distinct nameless executors collapse into one card, one of them supplying the result.
+    if (named && lastTurn && lastTurn.speaker === speaker) {
+      messageTurns.set(messageId, lastTurn);
+      reopen(lastTurn);
+      if (lastTurn.raw.trim()) {
+        lastTurn.raw += "\n\n";
+        append(lastTurn, "\n\n");
+      }
+      lastTurn.lastRaw = "";
+      return deliberation(lastTurn);
+    }
+
+    if (lastTurn) seal(lastTurn);
+
+    const turn = addTurn(participantFor(readable(speaker)), speaker);
+    messageTurns.set(messageId, turn);
+    return deliberation(turn);
+  }
+
+  // Whatever was deliberated before this speaker was named belongs to them. Held closed: it is
+  // several drafts of a position the card already carries, so it is there for a reader who wants
+  // it and out of the way of one who does not.
+  function deliberation(turn) {
+    const text = pendingReasoning.trim();
+    pendingReasoning = "";
+    if (!text) return turn;
+
+    if (!turn.caucusEl) {
+      turn.caucusEl = document.createElement("details");
+      turn.caucusEl.className = "caucus";
+      turn.caucusEl.innerHTML = `<summary></summary><div class="drafts"></div>`;
+      turn.caucusEl.querySelector("summary").textContent = "Deliberation";
+      turn.el.insertBefore(turn.caucusEl, turn.toolsEl);
+    }
+
+    turn.caucusRaw = turn.caucusRaw ? `${turn.caucusRaw}\n\n${text}` : text;
+    turn.caucusEl.querySelector(".drafts").innerHTML = format(turn.caucusRaw);
+    return turn;
+  }
+
+  // Keyed by the label the reader sees. AG-UI attributes speech by name and carries no separate
+  // executor id, so two participants presenting the same name are one participant to this view.
+  function participantFor(label) {
+    const key = label;
+    let who = participants.get(key);
+    if (who) return who;
+
+    const accent = ACCENTS[participants.size % ACCENTS.length];
+    const card = document.createElement("div");
+    card.className = "card panelist";
+    card.style.setProperty("--accent", accent);
+    card.innerHTML = `<div class="avatar"></div><div><div class="who"></div><div class="said"></div></div>`;
+    card.querySelector(".avatar").textContent = initials(label);
+    card.querySelector(".who").textContent = label;
+    panel.appendChild(card);
+
+    who = { label, accent, saidEl: card.querySelector(".said") };
+    participants.set(key, who);
+    return who;
+  }
+
+  function addTurn(who, speaker) {
+    const card = document.createElement("div");
+    card.className = "card turn";
+    card.style.setProperty("--accent", who.accent);
+    card.setAttribute("aria-busy", "true");
+    card.innerHTML = `
+      <div class="head"><div class="avatar"></div><h2 class="name"></h2></div>
+      <div class="tools"></div>
+      <div class="say"><span class="dots"><span></span><span></span><span></span></span></div>`;
+    card.querySelector(".avatar").textContent = initials(who.label);
+    card.querySelector(".name").textContent = who.label;
+    runlog.appendChild(card);
+
+    const turn = {
+      who, speaker,
+      seq: turnList.length,
+      el: card,
+      textEl: card.querySelector(".say"),
+      toolsEl: card.querySelector(".tools"),
+      bodyEl: null,
+      caretEl: null,
+      caucusEl: null,
+      caucusRaw: "",   // the drafts behind this turn, which are never part of what was said
+      raw: "",       // everything this speaker said in this turn
+      lastRaw: "",   // just their newest message, which is the one that carries a result
+      done: false,
+    };
+
+    turnList.push(turn);
+    lastTurn = turn;
+    return turn;
+  }
+
+  // Text can still arrive for a turn we sealed — a late chunk, or an agent that speaks again.
+  function reopen(turn) {
+    if (!turn.done) return turn;
+
+    turn.done = false;
+    turn.el.setAttribute("aria-busy", "true");
+    if (!turn.el.isConnected) {
+      const next = turnList.find(other => other.el.isConnected && other.seq > turn.seq);
+      runlog.insertBefore(turn.el, next ? next.el : null);
+    }
+    if (turn.bodyEl && !turn.caretEl.isConnected) turn.textEl.appendChild(turn.caretEl);
+    return turn;
+  }
+
+  // Streaming appends a text node per chunk: the reader keeps their selection, the caret keeps
+  // blinking, and the accumulated answer is not re-parsed once per token.
+  function append(turn, text) {
+    if (!turn.bodyEl) {
+      turn.bodyEl = document.createElement("span");
+      turn.caretEl = Object.assign(document.createElement("span"), { className: "caret" });
+      turn.textEl.replaceChildren(turn.bodyEl, turn.caretEl);
+    }
+    turn.bodyEl.appendChild(document.createTextNode(text));
+  }
+
+  function seal(turn) {
+    if (turn.done) return;
+    turn.done = true;
+    turn.el.setAttribute("aria-busy", "false");
+
+    // Now that the text is final, apply formatting once and drop the caret. The formatted span
+    // becomes the live body: keeping the old references would leave append() writing into a node
+    // that is no longer in the document, so anything the speaker said after being sealed — a late
+    // chunk, or a second message — accumulated in `raw` and never appeared on screen.
+    if (turn.bodyEl) {
+      turn.bodyEl = Object.assign(document.createElement("span"), { innerHTML: format(turn.raw) });
+      turn.caretEl = Object.assign(document.createElement("span"), { className: "caret" });
+      turn.textEl.replaceChildren(turn.bodyEl);
+    } else {
+      turn.textEl.replaceChildren();
+    }
+
+    // A card with nothing but a deliberation still earns its place: the drafts are the only record
+    // of a turn whose speaker was cut off before it said anything.
+    if (!turn.raw.trim() && !turn.toolsEl.childElementCount && !turn.caucusEl) turn.el.remove();
+    else turn.who.saidEl.textContent = summarize(turn.raw);
+  }
+
+  function sealAll() { turnList.forEach(seal); }
+
+  function showResult(text) {
+    const card = document.createElement("div");
+    card.className = "card result";
+
+    if (!text || !text.trim()) {
+      card.classList.add("empty");
+      card.innerHTML = `<div class="kicker">Finished</div><p class="body"></p>`;
+      card.querySelector(".body").textContent = "The workflow finished without producing a result.";
+      resultBox.appendChild(card);
+      announce("The workflow finished without producing a result.");
+      return;
+    }
+
+    const { heading, status, body } = splitResult(text);
+    card.innerHTML = `<div class="kicker">Result</div><h2></h2><div class="badge"></div><p class="body"></p>`;
+    card.querySelector("h2").textContent = heading;
+    const badge = card.querySelector(".badge");
+    badge.textContent = status;
+    if (/^(accepted|approved|done|ok)\b/i.test(status)) badge.classList.add("good");
+    card.querySelector(".body").innerHTML = format(body);
+    resultBox.appendChild(card);
+
+    // The card repeats the last turn word for word, so announcing the card itself would read the
+    // whole ruling twice. A short heads-up is the useful half — and only for readers who cannot
+    // simply see that the card arrived.
+    announce(heading ? `Result ready: ${heading}` : "Result ready.");
+  }
+
+  // A result may be an ADR-ish document, a paragraph, JSON, markdown or a stack trace. Lift a
+  // `Status:` line only from the top of the document, and only promote a first line to a heading
+  // when it reads like one — never a brace, a bullet, a fence or a clause that continues.
+  function splitResult(text) {
+    const lines = text.split("\n");
+
+    let status = "";
+    const top = lines.slice(0, 4);
+    const statusIndex = top.findIndex(line => /^\s*status:\s*\S/i.test(line));
+    if (statusIndex >= 0) {
+      const value = lines[statusIndex].replace(/^\s*status:\s*/i, "").trim();
+      if (value.length <= 40) {
+        status = value;
+        lines.splice(statusIndex, 1);
+      }
+    }
+
+    let heading = "";
+    const headingIndex = lines.findIndex(line => line.trim());
+    if (headingIndex >= 0) {
+      const candidate = lines[headingIndex].trim().replace(/^#+\s*/, "");
+      const hasBody = lines.slice(headingIndex + 1).some(line => line.trim());
+      const looksLikeHeading = /\p{L}/u.test(candidate)
+        && !/^[{[\-*#>|`]/.test(candidate)
+        && !/[,{[]$/.test(candidate)
+        && candidate.length <= 100;
+
+      if (hasBody && looksLikeHeading) {
+        heading = candidate;
+        lines.splice(headingIndex, 1);
+      }
+    }
+
+    return { heading, status, body: lines.join("\n").trim() };
+  }
+
+  // Reveal the region first, then write into it. A live region that is still display:none when the
+  // text lands is announced as a subtree insertion rather than a change, which several
+  // browser/screen-reader pairs miss entirely — the same reason setStatus adds its class first.
+  function stop(errorMessage) {
+    teardown();
+    if (errorMessage) {
+      errorBox.classList.add("on");
+      errorBox.textContent = errorMessage;
+      errorBox.scrollIntoView({ block: "nearest", behavior: calm() ? "auto" : "smooth" });
+    }
+  }
+
+  function note(text) {
+    noticeBox.classList.add("on");
+    noticeBox.textContent = text;
+  }
+
+  // Said only to assistive technology: the page itself already shows this.
+  function announce(text) {
+    announceBox.textContent = text;
+  }
+
+  function teardown() {
+    if (controller) { controller.abort(); controller = null; }
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+    running = false;
+    statusBox.classList.remove("on");
+    goButton.textContent = "Run";
+    goButton.classList.remove("running");
+  }
+
+  function atBottom() {
+    return document.documentElement.scrollHeight - window.scrollY - window.innerHeight < 160;
+  }
+
+  // Follow the run, but never fight a reader who has scrolled up. Always instant, and always
+  // throttled: a smooth animation reports intermediate positions to the scroll listener, which reads
+  // as the reader scrolling away and would un-pin for the rest of the run — and tool arguments
+  // arrive in as many deltas as prose does, so an unthrottled event restarted the animation ~126
+  // times in one measured run.
+  function follow() {
+    if (!pinnedToBottom) return;
+
+    const now = Date.now();
+    if (now - lastFollow < 250) return;
+    lastFollow = now;
+
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "auto" });
+  }
+
+  // Names arrive as the workflow author wrote them: cloud_native_advocate -> Cloud Native Advocate.
+  function readable(name) {
+    return (name ?? "")
+      .split(/[\s_\-]+/)
+      .filter(Boolean)
+      .map(word => word[0].toUpperCase() + word.slice(1))
+      .join(" ");
+  }
+
+  function initials(label) {
+    return (label ?? "").split(/[\s_\-\/]+/).filter(Boolean).slice(0, 2).map(word => [...word][0].toUpperCase()).join("");
+  }
+
+  function summarize(text) {
+    const clean = text.trim().replace(/\s+/g, " ");
+    return clean.length > 60 ? `${clean.slice(0, 60)}…` : clean;
+  }
+
+  function format(text) {
+    return text
+      .replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]))
+      .replace(/\*\*(.+?)\*\*/gs, "<strong>$1</strong>");
+  }
+</script>
+</body>
+</html>

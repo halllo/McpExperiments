@@ -17,6 +17,7 @@ namespace MyAgent.Tests;
 /// We assert on the exact output printed by the script to confirm it ran.
 /// </summary>
 [TestClass]
+[TestCategory("Live")]   // makes real, paid model calls
 public sealed class PdfSkillTests
 {
     public required TestContext TestContext { get; set; }

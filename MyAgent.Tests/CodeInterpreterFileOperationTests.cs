@@ -11,6 +11,7 @@ namespace MyAgent.Tests;
 /// No dependency on our CodeInterpreter wrapper or agent stack.
 /// </summary>
 [TestClass]
+[TestCategory("Live")]   // makes real, paid model calls
 public sealed class CodeInterpreterFileOperationTests
 {
     private const string CodeInterpreterId = "aws.codeinterpreter.v1";

@@ -57,9 +57,11 @@ var app = builder.Build();
 app.UseForwardedHeaders();
 app.UsePathBase("/my-agent");
 
+app.MapDefaultEndpoints();
 app.MapOpenApi();
 app.MapScalarApiReference();
 app.MapDevUI();
+app.MapArchitectureCouncil();
 app.MapOpenAIResponses();
 app.MapOpenAIConversations();
 

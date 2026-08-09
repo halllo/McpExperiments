@@ -10,20 +10,22 @@ public static class Factory
 {
     public static IChatClient OpenAI(IConfiguration configuration, IServiceProvider services)
     {
-        var applicationName = services.GetRequiredService<IHostEnvironment>().ApplicationName;
+        var environment = services.GetRequiredService<IHostEnvironment>();
         var openaiApiKey = configuration["OPENAI_API_KEY"] ?? throw new InvalidOperationException("OPENAI_API_KEY is not set.");
         return new OpenAIClient(openaiApiKey)
             .GetChatClient("gpt-4o")
             .AsIChatClient()
             .AsBuilder()
-            .UseOpenTelemetry(sourceName: applicationName, configure: c => c.EnableSensitiveData = true)
+            // Sensitive data means the prompts and completions themselves. Useful in the local
+            // dashboard, wrong to ship to a shared collector, so it follows the environment.
+            .UseOpenTelemetry(sourceName: environment.ApplicationName, configure: c => c.EnableSensitiveData = environment.IsDevelopment())
             .Build()
             ;
     }
 
     public static IChatClient AmazonBedrock(IConfiguration configuration, IServiceProvider services)
     {
-        var applicationName = services.GetRequiredService<IHostEnvironment>().ApplicationName;
+        var environment = services.GetRequiredService<IHostEnvironment>();
         var runtime = new AmazonBedrockRuntimeClient(
             awsAccessKeyId: configuration["AWSBedrockAccessKeyId"],
             awsSecretAccessKey: configuration["AWSBedrockSecretAccessKey"],
@@ -34,7 +36,7 @@ public static class Factory
                 "eu.anthropic.claude-sonnet-4-6"
             )
             .AsBuilder()
-            .UseOpenTelemetry(sourceName: applicationName, configure: c => c.EnableSensitiveData = true)
+            .UseOpenTelemetry(sourceName: environment.ApplicationName, configure: c => c.EnableSensitiveData = environment.IsDevelopment())
             .Build(services)
             ;
     }

@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace MyAgent.Tests;
 
 [TestClass]
+[TestCategory("Live")]   // makes real, paid model calls
 public sealed class ChatHistoryReducingTests
 {
     static AIAgent CreateAgent()

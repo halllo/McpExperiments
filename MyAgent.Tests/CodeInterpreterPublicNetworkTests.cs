@@ -29,6 +29,7 @@ namespace MyAgent.Tests;
 ///     --code-interpreter-id PublicNetworkTestCI-XXXXXXXXXX
 /// </summary>
 [TestClass, DoNotParallelize]
+[TestCategory("Live")]   // makes real, paid model calls
 public sealed class CodeInterpreterPublicNetworkTests
 {
     // create-code-interpreter name pattern: [a-zA-Z][a-zA-Z0-9_]{0,47} — no hyphens.
