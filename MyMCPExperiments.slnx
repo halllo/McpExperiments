@@ -1,7 +1,7 @@
 <Solution>
-  <Project Path="../mcp-csharp-sdk/src/ModelContextProtocol.AspNetCore/ModelContextProtocol.AspNetCore.csproj" />
+  <!-- <Project Path="../mcp-csharp-sdk/src/ModelContextProtocol.AspNetCore/ModelContextProtocol.AspNetCore.csproj" />
   <Project Path="../mcp-csharp-sdk/src/ModelContextProtocol.Core/ModelContextProtocol.Core.csproj" />
-  <Project Path="../mcp-csharp-sdk/src/ModelContextProtocol/ModelContextProtocol.csproj" />
+  <Project Path="../mcp-csharp-sdk/src/ModelContextProtocol/ModelContextProtocol.csproj" /> -->
   <Project Path="McpExperiments.AppHost/McpExperiments.AppHost.csproj" />
   <Project Path="McpExperiments.ServiceDefaults/McpExperiments.ServiceDefaults.csproj" />
   <Project Path="MyMCPClient.Console/MyMCPClient.Console.csproj" />

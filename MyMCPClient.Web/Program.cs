@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication;
+﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -12,19 +12,22 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+// Switch to false to bypass the gateway and talk to the services directly.
+var useGateway = true;
+
 //var internalIdentityServerUrl = builder.Configuration["services:identity-server:https:0"];
 var identityServerGatewayedUrl = "https://gateway-mcpexperiments.dev.localhost:8443/identity";
 var identityServerDirectUrl = "https://identity-server-mcpexperiments.dev.localhost:5001";
 // var identityServerGatewayedUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/identity";
 // var identityServerDirectUrl = "https://identity-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io";
-var identityServerUrl = identityServerGatewayedUrl;
+var identityServerUrl = useGateway ? identityServerGatewayedUrl : identityServerDirectUrl;
 
 // var myMcpServerUrl = builder.Configuration["services:my-mcp-server:https:0"];
 var myMcpServerUrlGatewayedUrl = "https://gateway-mcpexperiments.dev.localhost:8443/my-mcp-server/mcp";
 var myMcpServerUrlDirectUrl = "https://my-mcp-server-mcpexperiments.dev.localhost:7296/mcp";
 // var myMcpServerUrlGatewayedUrl = "https://gateway.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/my-mcp-server/mcp";
 // var myMcpServerUrlDirectUrl= "https://my-mcp-server.gentlemeadow-305c776b.germanywestcentral.azurecontainerapps.io/mcp";
-var myMcpServerUrl = myMcpServerUrlGatewayedUrl;
+var myMcpServerUrl = useGateway ? myMcpServerUrlGatewayedUrl : myMcpServerUrlDirectUrl;
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {

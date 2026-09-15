@@ -34,7 +34,7 @@ var httpClientTransport = new HttpClientTransport(new()
 	{
 		ClientId = "mcp_console",
 		RedirectUri = new Uri("http://localhost:1179/callback"),
-		AuthorizationRedirectDelegate = AuthorizationUrl.Handle,
+		AuthorizationCallbackHandler = AuthorizationUrl.Handle,
 		TokenCache = tokenCache,
 	},
 }, http);

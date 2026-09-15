@@ -1,3 +1,4 @@
+using ModelContextProtocol.Authentication;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
@@ -7,7 +8,7 @@ using System.Web;
 public static class AuthorizationUrl
 {
     /// Taken from https://github.com/modelcontextprotocol/csharp-sdk/blob/c0440760ac363d817cbdca87e1ab7eff7e74a025/samples/ProtectedMCPClient/Program.cs#L72
-    public static async Task<string?> Handle(Uri authUrl, Uri redirectUri, CancellationToken cancellationToken)
+    public static async Task<AuthorizationResult?> Handle(AuthorizationCallbackContext context, CancellationToken cancellationToken)
     {
         static Uri changeScopes(Uri url, Func<string[], string[]> adjustScopes)
         {
@@ -19,10 +20,10 @@ public static class AuthorizationUrl
         }
 
         // Scope manipulation, because ClientOAuthProvider.Scopes no longer has priority (https://github.com/modelcontextprotocol/csharp-sdk/pull/1238)
-        var newAuthUrl = changeScopes(authUrl, scopes => [.. scopes, "offline_access"]);
+        var newAuthUrl = changeScopes(context.AuthorizationUri, scopes => [.. scopes, "offline_access"]);
         Console.WriteLine($"Starting OAuth authorization flow at {newAuthUrl}");
 
-        var listenerPrefix = redirectUri.GetLeftPart(UriPartial.Authority);
+        var listenerPrefix = context.RedirectUri.GetLeftPart(UriPartial.Authority);
         if (!listenerPrefix.EndsWith("/")) listenerPrefix += "/";
 
         using var listener = new HttpListener();
@@ -35,17 +36,19 @@ public static class AuthorizationUrl
 
             OpenBrowser(newAuthUrl);
 
-            var context = await listener.GetContextAsync();
-            var query = HttpUtility.ParseQueryString(context.Request.Url?.Query ?? string.Empty);
+            var httpContext = await listener.GetContextAsync();
+            var query = HttpUtility.ParseQueryString(httpContext.Request.Url?.Query ?? string.Empty);
             var code = query["code"];
+            var state = query["state"];
+            var iss = query["iss"];
             var error = query["error"];
 
             string responseHtml = "<html><body><h1>Authentication complete</h1><p>You can close this window now.</p></body></html>";
             byte[] buffer = Encoding.UTF8.GetBytes(responseHtml);
-            context.Response.ContentLength64 = buffer.Length;
-            context.Response.ContentType = "text/html";
-            context.Response.OutputStream.Write(buffer, 0, buffer.Length);
-            context.Response.Close();
+            httpContext.Response.ContentLength64 = buffer.Length;
+            httpContext.Response.ContentType = "text/html";
+            httpContext.Response.OutputStream.Write(buffer, 0, buffer.Length);
+            httpContext.Response.Close();
 
             if (!string.IsNullOrEmpty(error))
             {
@@ -59,8 +62,16 @@ public static class AuthorizationUrl
                 return null;
             }
 
+            // The SDK requires an exact match against the state it sent before it exchanges the code.
+            if (string.IsNullOrEmpty(state))
+            {
+                Console.WriteLine("No state received");
+                return null;
+            }
+
             Console.WriteLine("Authorization code received successfully.");
-            return code;
+            // Iss is passed on when present so the SDK can validate the issuer per RFC 9207.
+            return new AuthorizationResult { Code = code, State = state, Iss = iss };
         }
         catch (Exception ex)
         {
