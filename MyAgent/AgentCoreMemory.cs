@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Amazon.BedrockAgentCore;
 using Amazon.BedrockAgentCore.Model;
@@ -23,6 +24,7 @@ public class AgentCoreMemory(
 
     // Everything long-term about a user lives under /users/{actorId}/..., so a single hierarchical search covers facts and preferences.
     public static string UserNamespace(string actorId) => $"/users/{actorId}/";
+    public static string SummaryNamespace(string actorId) => $"/summaries/{actorId}/";
 
     private readonly SemaphoreSlim memoryIdLock = new(1, 1);
     private string? memoryId = configuration["AWSBedrockAgentCoreMemoryId"];
@@ -69,6 +71,84 @@ public class AgentCoreMemory(
             Payload = payload,
         }, cancellationToken);
         logger.LogInformation("Stored {Count} message(s) as memory event for actor {ActorId}, session {MemorySessionId}", payload.Count, actorId, sessionId);
+    }
+
+    /// <summary>
+    /// Deletes everything stored for an actor: the raw events of all its sessions (short-term) and the records
+    /// extracted from them (long-term). There is no single AgentCore call for this, so it walks sessions and namespaces.
+    /// </summary>
+    /// <remarks>
+    /// Extraction runs asynchronously, so an event stored shortly before this call can still produce records afterwards.
+    /// For a guaranteed erasure, call it again a few minutes later.
+    /// </remarks>
+    public async Task<(int EventsDeleted, int RecordsDeleted)> ForgetActor(string actorId, CancellationToken cancellationToken = default)
+    {
+        var id = await GetMemoryId(cancellationToken);
+
+        // Events first, so nothing new gets extracted while we delete the records.
+        var eventsDeleted = 0;
+        await foreach (var sessionId in ListSessions(id, actorId, cancellationToken))
+        {
+            await foreach (var eventId in ListEvents(id, actorId, sessionId, cancellationToken))
+            {
+                await agentCore.DeleteEventAsync(new DeleteEventRequest { MemoryId = id, ActorId = actorId, SessionId = sessionId, EventId = eventId }, cancellationToken);
+                eventsDeleted++;
+            }
+        }
+
+        var recordsDeleted = 0;
+        foreach (var ns in new[] { UserNamespace(actorId), SummaryNamespace(actorId) })
+        {
+            var records = await ListRecords(id, ns, cancellationToken).ToListAsync(cancellationToken);
+            foreach (var chunk in records.Chunk(100))
+            {
+                var response = await agentCore.BatchDeleteMemoryRecordsAsync(new BatchDeleteMemoryRecordsRequest
+                {
+                    MemoryId = id,
+                    // Records are listed with a trailing slash on their namespace, but delete answers 404 unless it's trimmed.
+                    Records = [.. chunk.Select(r => new MemoryRecordDeleteInput { MemoryRecordId = r.MemoryRecordId, Namespace = r.Namespaces?.FirstOrDefault()?.TrimEnd('/') })],
+                }, cancellationToken);
+                if (response.FailedRecords is { Count: > 0 } failed)
+                    throw new InvalidOperationException($"Deleting {failed.Count} memory record(s) of actor {actorId} failed: {failed[0].ErrorCode} {failed[0].ErrorMessage}");
+                recordsDeleted += response.SuccessfulRecords?.Count ?? 0;
+            }
+        }
+
+        logger.LogInformation("Forgot actor {ActorId}: deleted {EventCount} event(s) and {RecordCount} memory record(s)", actorId, eventsDeleted, recordsDeleted);
+        return (eventsDeleted, recordsDeleted);
+    }
+
+    private async IAsyncEnumerable<string> ListSessions(string id, string actorId, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        string? nextToken = null;
+        do
+        {
+            var page = await agentCore.ListSessionsAsync(new ListSessionsRequest { MemoryId = id, ActorId = actorId, MaxResults = 100, NextToken = nextToken }, cancellationToken);
+            foreach (var session in page.SessionSummaries ?? []) yield return session.SessionId;
+            nextToken = page.NextToken;
+        } while (nextToken is not null);
+    }
+
+    private async IAsyncEnumerable<string> ListEvents(string id, string actorId, string sessionId, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        string? nextToken = null;
+        do
+        {
+            var page = await agentCore.ListEventsAsync(new ListEventsRequest { MemoryId = id, ActorId = actorId, SessionId = sessionId, IncludePayloads = false, MaxResults = 100, NextToken = nextToken }, cancellationToken);
+            foreach (var e in page.Events ?? []) yield return e.EventId;
+            nextToken = page.NextToken;
+        } while (nextToken is not null);
+    }
+
+    private async IAsyncEnumerable<MemoryRecordSummary> ListRecords(string id, string namespacePath, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        string? nextToken = null;
+        do
+        {
+            var page = await agentCore.ListMemoryRecordsAsync(new ListMemoryRecordsRequest { MemoryId = id, NamespacePath = namespacePath, MaxResults = 100, NextToken = nextToken }, cancellationToken);
+            foreach (var record in page.MemoryRecordSummaries ?? []) yield return record;
+            nextToken = page.NextToken;
+        } while (nextToken is not null);
     }
 
     /// <summary>
@@ -156,7 +236,7 @@ public class AgentCoreMemoryProvider(AgentCoreMemory memory, string actorId, ILo
     }
 
     // Without this the model insists it cannot remember anything across conversations.
-    private const string memoryInstructions = "You have long-term memory: what the user tells you is remembered automatically across conversations, so you don't need to do anything to store it.";
+    private const string memoryInstructions = "\nYou have long-term memory: what the user tells you is remembered automatically across conversations, so you don't need to do anything to store it.";
 
     protected override async ValueTask<AIContext> ProvideAIContextAsync(InvokingContext context, CancellationToken cancellationToken = default)
     {
