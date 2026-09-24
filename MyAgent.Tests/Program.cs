@@ -1,4 +1,5 @@
 using Amazon.BedrockAgentCore;
+using Amazon.BedrockAgentCoreControl;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -40,5 +41,11 @@ public static class Program
                     awsSecretAccessKey: config["AWSBedrockSecretAccessKey"],
                     region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"])));
             services.AddSingleton<CodeInterpreter>();
+            services.AddSingleton<IAmazonBedrockAgentCoreControl>(sp =>
+                new AmazonBedrockAgentCoreControlClient(
+                    awsAccessKeyId: config["AWSBedrockAccessKeyId"],
+                    awsSecretAccessKey: config["AWSBedrockSecretAccessKey"],
+                    region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"])));
+            services.AddSingleton<AgentCoreMemory>();
         });
 }

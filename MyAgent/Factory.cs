@@ -46,9 +46,19 @@ public static class Factory
     /// Intended for automated tests, where nobody is around to approve. Leave <see langword="false"/> for DevUI
     /// so skill invocations still ask for confirmation.
     /// </param>
-    public static AIAgent CreateAgent(string name, IChatClient chatClient, IServiceProvider services, IChatReducer? reducer = null, IList<AITool>? tools = null, bool autoApproveSkillTools = false)
+    /// <param name="memoryActorId">
+    /// Whose long-term memories the agent recalls and records. Falls back to <c>AgentCoreMemoryActorId</c> from
+    /// configuration, then <c>default-user</c>. Memory is only enabled when <see cref="AgentCoreMemory"/> is registered.
+    /// </param>
+    public static AIAgent CreateAgent(string name, IChatClient chatClient, IServiceProvider services, IChatReducer? reducer = null, IList<AITool>? tools = null, bool autoApproveSkillTools = false, string? memoryActorId = null)
     {
         var applicationName = services.GetRequiredService<IHostEnvironment>().ApplicationName;
+        var contextProviders = new List<AIContextProvider> { CreateSkillsProvider(autoApproveSkillTools) };
+        if (services.GetService<AgentCoreMemory>() is { } memory)
+        {
+            var actorId = memoryActorId ?? services.GetRequiredService<IConfiguration>()["AgentCoreMemoryActorId"] ?? "default-user";
+            contextProviders.Add(new AgentCoreMemoryProvider(memory, actorId, services.GetRequiredService<ILogger<AgentCoreMemoryProvider>>()));
+        }
         return chatClient
             .AsAIAgent(
                 options: new ChatClientAgentOptions
@@ -61,7 +71,7 @@ public static class Factory
                         Tools = tools,
                     },
                     ChatHistoryProvider = new FileSystemChatHistoryProvider(reducer: reducer), // DevUI uses InMemoryResponsesService, which stores/loads directly with IConversationStorage.
-                    AIContextProviders = [CreateSkillsProvider(autoApproveSkillTools)],
+                    AIContextProviders = contextProviders,
                 },
                 services: services)
             .AsBuilder()

@@ -1,4 +1,5 @@
 using Amazon.BedrockAgentCore;
+using Amazon.BedrockAgentCoreControl;
 using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -36,6 +37,15 @@ builder.Services.AddSingleton<IAmazonBedrockAgentCore>(sp =>
         region: Amazon.RegionEndpoint.GetBySystemName(configuration["AWSBedrockRegion"]));
 });
 builder.Services.AddSingleton<CodeInterpreter>();
+builder.Services.AddSingleton<IAmazonBedrockAgentCoreControl>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    return new AmazonBedrockAgentCoreControlClient(
+        awsAccessKeyId: configuration["AWSBedrockAccessKeyId"],
+        awsSecretAccessKey: configuration["AWSBedrockSecretAccessKey"],
+        region: Amazon.RegionEndpoint.GetBySystemName(configuration["AWSBedrockRegion"]));
+});
+builder.Services.AddSingleton<AgentCoreMemory>();
 
 var openai = builder.AddAIAgent("openai", (sp, key) => Factory.CreateAgent(
     name: key,

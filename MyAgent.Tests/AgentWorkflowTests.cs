@@ -140,8 +140,8 @@ public sealed class AgentWorkflowTests
         // The ADR itself is the tool's output, which is deterministic — unlike whether the model
         // then echoes it verbatim, which it is instructed to do but does not reliably do.
         var adr = events.OfType<ToolCallResultEvent>()
-            .Select(r => r.Content)
-            .FirstOrDefault(content => content?.Contains(ArchitectureCouncil.AdrMarker) == true);
+            .Select(r => r.Content.ToString())
+            .FirstOrDefault(content => content.Contains(ArchitectureCouncil.AdrMarker));
 
         Assert.IsNotNull(adr, $"Expected format_adr to have produced an ADR containing {ArchitectureCouncil.AdrMarker}.");
         StringAssert.Contains(adr, "Status: Accepted", "The formatted ADR should carry its status.");

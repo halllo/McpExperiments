@@ -8,16 +8,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="AWSSDK.BedrockAgentCore" Version="4.0.110.3" />
-    <PackageReference Include="AWSSDK.BedrockAgentCoreControl" Version="4.0.114.3" />
+    <PackageReference Include="AWSSDK.BedrockAgentCore" Version="4.0.112" />
+    <PackageReference Include="AWSSDK.BedrockAgentCoreControl" Version="4.0.117" />
     <PackageReference Include="AWSSDK.Extensions.Bedrock.MEAI" Version="4.0.101.8" />
-    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.21.0" />
-    <PackageReference Include="Microsoft.Agents.AI.DevUI" Version="1.21.0-preview.260911.1" />
-    <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.21.0" />
+    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.22.0" />
+    <PackageReference Include="Microsoft.Agents.AI.DevUI" Version="1.22.0-preview.260918.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.22.0" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.10.0" />
-    <PackageReference Include="AGUI.Server" Version="0.0.6" />
+    <PackageReference Include="AGUI.Server" Version="1.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.17.3" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.17.9" />
   </ItemGroup>
   
   <ItemGroup>
