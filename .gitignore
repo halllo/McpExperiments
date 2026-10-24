@@ -404,3 +404,5 @@ FodyWeavers.xsd
 token_cache.json
 nanobot.db
 .claude/settings.local.json
+
+/brag-output*
