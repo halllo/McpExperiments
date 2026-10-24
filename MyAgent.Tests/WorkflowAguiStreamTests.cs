@@ -79,6 +79,29 @@ public sealed class WorkflowAguiStreamTests
         Assert.AreEqual(3, events.OfType<ToolCallResultEvent>().Count(), "Every call reported a result.");
     }
 
+    [TestMethod]
+    [Timeout(30_000)]
+    public async Task Run_WithToolCallsButNoPreamble_StillNamesWhoMadeEachCall()
+    {
+        var chat = new StubChatClient { WithToolCall = true, SkipPreamble = true };
+        var events = await Collect(Council(chat), Context("a topic"));
+
+        AguiConformance.Assert(events);
+
+        // Without a preamble the call's parent message carries no text, so the mapper never opens
+        // it — and TEXT_MESSAGE_START is the only event that names the speaker.
+        var messageNames = events.OfType<TextMessageStartEvent>().ToDictionary(s => s.MessageId, s => s.Name);
+        var calls = events.OfType<ToolCallStartEvent>().ToList();
+        Assert.AreEqual(3, calls.Count, "Each participant called its tool once.");
+
+        foreach (ToolCallStartEvent call in calls)
+        {
+            Assert.IsTrue(messageNames.TryGetValue(call.ParentMessageId!, out var name),
+                $"Tool call '{call.ToolCallId}' names parent '{call.ParentMessageId}', which never opened.");
+            Assert.IsFalse(string.IsNullOrEmpty(name), $"Tool call '{call.ToolCallId}' was placed in a message with no speaker.");
+        }
+    }
+
     // --- rejected input ---------------------------------------------------------------------
 
     [TestMethod]

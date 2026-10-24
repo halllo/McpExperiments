@@ -120,8 +120,14 @@ public static class WorkflowAguiStream
         var terminated = false;
         var count = 0;
 
+        // Who wrote each message, and which messages the client has seen open. A participant that
+        // calls a tool without a preamble produces a TOOL_CALL_START whose parent message never
+        // opened — and only TEXT_MESSAGE_START names the speaker, so the page cannot place the call.
+        var authors = new Dictionary<string, string>();
+        var openedMessageIds = new HashSet<string>();
+
         IAsyncEnumerable<BaseEvent> events = Guarded(
-            Updates(agent, context.Messages, outcome, cancellationToken).AsAGUIEventStreamAsync(context, cancellationToken),
+            Updates(agent, context.Messages, outcome, authors, cancellationToken).AsAGUIEventStreamAsync(context, cancellationToken),
             outcome,
             cancellationToken);
 
@@ -147,6 +153,20 @@ public static class WorkflowAguiStream
             if (evt is RunFinishedEvent && outcome.Incomplete)
             {
                 break;
+            }
+
+            if (evt is TextMessageStartEvent opened)
+            {
+                openedMessageIds.Add(opened.MessageId);
+            }
+
+            // Give the call's parent message the empty start/end it never got, so it carries the
+            // speaker. Emitted closed: a message left open here would swallow the next one's text.
+            if (evt is ToolCallStartEvent { ParentMessageId: { } parent } && openedMessageIds.Add(parent))
+            {
+                yield return Scrub(new TextMessageStartEvent { MessageId = parent, Name = authors.GetValueOrDefault(parent) });
+                yield return Scrub(new TextMessageEndEvent { MessageId = parent });
+                count += 2;
             }
 
             terminated = evt is RunFinishedEvent or RunErrorEvent;
@@ -298,6 +318,7 @@ public static class WorkflowAguiStream
         AIAgent agent,
         IEnumerable<ChatMessage> messages,
         RunOutcome outcome,
+        Dictionary<string, string> authors,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // No ChatOptions are forwarded: the tools an AG-UI client advertises are its own to run,
@@ -311,6 +332,11 @@ public static class WorkflowAguiStream
                 // that a verdict is the one mistake this class exists to prevent.
                 outcome.Failed = true;
                 outcome.Detail ??= error.Message;
+            }
+
+            if (update.MessageId is { } messageId && update.AuthorName is { } author)
+            {
+                authors[messageId] = author;
             }
 
             yield return update.AsChatResponseUpdate();

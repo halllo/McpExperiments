@@ -8,9 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.12" />
-    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
-    <PackageReference Include="MSTest" Version="4.4.1" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.13" />
+    <PackageReference Include="ModelContextProtocol" Version="2.3.0" />
+    <PackageReference Include="MSTest" Version="4.5.1" />
   </ItemGroup>
 
   <ItemGroup>

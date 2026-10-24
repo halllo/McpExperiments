@@ -105,8 +105,8 @@ public class AgentCoreMemory(
                 var response = await agentCore.BatchDeleteMemoryRecordsAsync(new BatchDeleteMemoryRecordsRequest
                 {
                     MemoryId = id,
-                    // Records are listed with a trailing slash on their namespace, but delete answers 404 unless it's trimmed.
-                    Records = [.. chunk.Select(r => new MemoryRecordDeleteInput { MemoryRecordId = r.MemoryRecordId, Namespace = r.Namespaces?.FirstOrDefault()?.TrimEnd('/') })],
+                    // Delete wants the namespace exactly as listed, with one leading and one trailing slash.
+                    Records = [.. chunk.Select(r => new MemoryRecordDeleteInput { MemoryRecordId = r.MemoryRecordId, Namespace = r.Namespaces?.FirstOrDefault() })],
                 }, cancellationToken);
                 if (response.FailedRecords is { Count: > 0 } failed)
                     throw new InvalidOperationException($"Deleting {failed.Count} memory record(s) of actor {actorId} failed: {failed[0].ErrorCode} {failed[0].ErrorMessage}");

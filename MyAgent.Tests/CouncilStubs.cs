@@ -102,6 +102,9 @@ sealed class StubChatClient : IChatClient
 
     public bool WithToolCall { get; init; }
 
+    /// <summary>Call the tool straight away, with no text before it — which real models do.</summary>
+    public bool SkipPreamble { get; init; }
+
     /// <summary>How many calls have been made — i.e. what the run has cost.</summary>
     public int Calls => Volatile.Read(ref _calls);
 
@@ -143,7 +146,11 @@ sealed class StubChatClient : IChatClient
         if (WithToolCall && call <= 3)
         {
             // A tool-calling agent speaks twice: a preamble carrying the call, then its answer.
-            yield return new ChatResponseUpdate(ChatRole.Assistant, "Let me check. ");
+            if (!SkipPreamble)
+            {
+                yield return new ChatResponseUpdate(ChatRole.Assistant, "Let me check. ");
+            }
+
             yield return new ChatResponseUpdate(ChatRole.Assistant,
                 [new FunctionCallContent($"call-{call}", "get_role", new Dictionary<string, object?>())]);
             yield return new ChatResponseUpdate(ChatRole.Tool,
