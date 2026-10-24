@@ -5,7 +5,7 @@
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,
-      "launchUrl": "devui",
+      "launchUrl": "ag-ui-chat",
       "applicationUrl": "https://localhost:7207",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"

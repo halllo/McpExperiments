@@ -52,6 +52,7 @@ public static class AgUiChatEndpoints
                 {
                     agents = AgentNames,
                     activityType = PlannerExecutor.ActivityType,
+                    contextEvent = AgentActivityPublisher.ContextEventName,
                 }))
            .ExcludeFromDescription();
 

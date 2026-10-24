@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'none'; base-uri 'none'" />
-<title>Agents</title>
+<title>My Agent</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%A7%AD</text></svg>" />
 <style>
   :root {
@@ -53,7 +53,8 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  .wrap { max-width: 820px; margin: 0 auto; padding: 40px 16px 80px; }
+  /* A column as tall as the window, so the composer sits at its bottom even before there is a chat. */
+  .wrap { max-width: 820px; margin: 0 auto; padding: 40px 16px 0; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
   h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -.02em; }
   .page-head { margin-bottom: 24px; }
   .page-head p { margin: 0; color: var(--muted); }
@@ -63,7 +64,7 @@
     clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
   }
 
-  #transcript { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+  #transcript { flex: 1; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
 
   .msg {
     padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--border);
@@ -78,12 +79,22 @@
   }
   .tool.done::after { content: " ✓"; color: var(--ok); }
 
+  .run-usage { align-self: flex-end; margin-top: -6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; cursor: default; }
+
   .plan { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; }
+  .plan summary { list-style: none; cursor: pointer; }
+  .plan summary::-webkit-details-marker { display: none; }
   .plan header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .plan header::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+  .plan[open] header::before { transform: rotate(90deg); }
+  .plan[open] summary { margin-bottom: 4px; }
+  .plan .count { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) { .plan header::before { transition: none; } }
   .plan h2 { margin: 0; font-size: 15px; }
   .plan .goal { margin: 4px 0 10px; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
   .plan ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
   .plan li { padding: 8px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); }
+  .plan li .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .plan li .title { font-weight: 600; }
   .plan li .result { margin-top: 4px; font-size: 13px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
   .plan .tokens { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -120,43 +131,151 @@
   .badge.completed { color: var(--ok); }
   .badge.failed { color: var(--danger); }
 
-  form { display: flex; flex-direction: column; gap: 10px; }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  textarea, select {
-    font: inherit; color: var(--text); background: var(--panel);
-    border: 1px solid var(--control-border); border-radius: 10px; padding: 10px 12px;
+  /* --- suggestions: only before the first message ------------------------------------------- */
+  .suggestions { margin: 0 0 24px; }
+  .suggestions[hidden] { display: none; }
+  .suggestions h2 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: .02em; text-transform: uppercase; }
+  .suggestion-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+  .suggestion {
+    font: inherit; text-align: left; color: var(--text); cursor: pointer;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 2px;
+    transition: border-color .15s, box-shadow .15s, transform .15s;
   }
-  textarea { width: 100%; min-height: 80px; resize: vertical; }
-  button {
-    font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 10px 18px;
-    background: var(--brand); color: var(--on-brand); cursor: pointer;
+  .suggestion:hover { border-color: var(--brand); box-shadow: var(--shadow); transform: translateY(-1px); }
+  .suggestion:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .suggestion strong { font-size: 14px; font-weight: 600; }
+  .suggestion span { font-size: 13px; color: var(--muted); }
+
+  /* --- composer ---------------------------------------------------------------------------------- */
+  .dock {
+    position: sticky; bottom: 0; z-index: 1;
+    padding: 16px 0 calc(16px + env(safe-area-inset-bottom));
+    /* Fades the transcript out under the composer instead of cutting it off. */
+    background: linear-gradient(to bottom, transparent, var(--bg) 18px);
   }
-  button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-  #error { color: var(--danger); min-height: 1.6em; }
-  #status { color: var(--muted); font-size: 14px; }
+  .composer {
+    background: var(--panel); border: 1px solid var(--control-border); border-radius: 18px;
+    box-shadow: var(--shadow); padding: 12px 12px 10px 16px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .composer:focus-within { border-color: var(--brand); box-shadow: var(--shadow), 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent); }
+  .composer textarea {
+    display: block; width: 100%; resize: none; border: 0; outline: 0; padding: 4px 0; margin: 0;
+    font: inherit; line-height: 1.5; color: var(--text); background: transparent;
+    min-height: 1.5em; max-height: 40vh; overflow-y: auto;
+  }
+  .composer textarea::placeholder { color: var(--muted); }
+  .toolbar { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .toolbar .spacer { flex: 1; }
+
+  .agent-picker {
+    position: relative; display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--border); border-radius: 999px; padding: 0 10px 0 10px; height: 32px;
+    color: var(--muted); font-size: 13px; background: var(--panel-2);
+  }
+  .agent-picker:focus-within { border-color: var(--brand); }
+  .agent-picker select {
+    appearance: none; border: 0; outline: 0; background: transparent; color: var(--text);
+    font: inherit; font-weight: 600; padding: 0 14px 0 0; cursor: pointer;
+  }
+  /* The native arrow is gone with appearance: none; this one sits where it was. */
+  .agent-picker::after {
+    content: ""; position: absolute; right: 11px; top: 50%; width: 6px; height: 6px; margin-top: -5px;
+    border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); pointer-events: none;
+  }
+
+  .icon-button {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px;
+    border: 1px solid transparent; border-radius: 999px; padding: 0 10px; cursor: pointer;
+    font: inherit; font-size: 13px; color: var(--muted); background: transparent;
+  }
+  .icon-button:hover { color: var(--text); background: var(--panel-2); border-color: var(--border); }
+  .icon-button:focus-visible, .send:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .icon-button svg, .send svg { width: 16px; height: 16px; flex: none; }
+
+  .send {
+    width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--brand); color: var(--on-brand); transition: opacity .15s, transform .1s;
+  }
+  .send:active { transform: scale(.94); }
+  .send:disabled { opacity: .35; cursor: default; transform: none; }
+  .send .stop-icon { display: none; }
+  .send.running .send-icon { display: none; }
+  .send.running .stop-icon { display: block; }
+
+  #status { color: var(--muted); font-size: 13px; }
+  #status:empty { display: none; }
+  .hint { margin: 6px 4px 0; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; }
+  .hint kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--panel-2); }
+  #error { color: var(--danger); }
+  #error:empty { display: none; }
+
+  @media (max-width: 520px) {
+    .hint .keys { display: none; }
+    .new-chat-label { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .suggestion, .composer, .send { transition: none; }
+    .suggestion:hover { transform: none; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="page-head">
-    <h1>Agents</h1>
+    <h1>My Agent</h1>
     <p>Chat with an agent over AG-UI. Ask for something that takes several steps and watch its <code>plan_and_execute</code> tool work through the plan live.</p>
   </div>
 
+  <section class="suggestions" id="suggestions" aria-labelledby="suggestions-title">
+    <h2 id="suggestions-title">Try one of these</h2>
+    <div class="suggestion-grid">
+      <button type="button" class="suggestion" data-prompt="Use plan_and_execute: get the current UTC time, then use Python to calculate how many days, hours and minutes are left until New Year's Eve, then summarize the result in one sentence.">
+        <strong>Countdown to New Year</strong><span>Time lookup, then Python, then a summary</span>
+      </button>
+      <button type="button" class="suggestion" data-prompt="Use plan_and_execute: generate 1,000 random numbers from a normal distribution with Python, compute mean, median and standard deviation, then check whether the result is consistent with the distribution you used, and explain any difference.">
+        <strong>Random sample statistics</strong><span>Steps that build on each other's results</span>
+      </button>
+      <button type="button" class="suggestion" data-prompt="Find out what weekday it is in UTC right now, compute which weekday it will be exactly 1,000 days from now, and tell me how many of those 1,000 days fall on a weekend.">
+        <strong>1,000 days from now</strong><span>Doesn't name the tool: does the agent plan?</span>
+      </button>
+      <button type="button" class="suggestion" data-prompt="Use plan_and_execute with one step per item: compute the 10th, 20th, 30th, 40th, 50th, 60th, 70th and 80th Fibonacci numbers, then sum them.">
+        <strong>Fibonacci in 9 steps</strong><span>Asks for more steps than the plan allows</span>
+      </button>
+    </div>
+  </section>
+
   <div id="transcript" aria-live="polite"></div>
 
-  <form id="form">
-    <label for="prompt" class="visually-hidden">Message</label>
-    <textarea id="prompt" required placeholder="e.g. Find the current UTC time, use Python to compute the days left until New Year, then summarize."></textarea>
-    <div class="row">
-      <label for="agent">Agent</label>
-      <select id="agent"></select>
-      <button id="go" type="submit">Send</button>
-      <button id="reset" type="button" class="secondary">New chat</button>
-      <span id="status"></span>
+  <div class="dock">
+    <form id="form" class="composer">
+      <label for="prompt" class="visually-hidden">Message</label>
+      <textarea id="prompt" rows="1" required placeholder="Ask for something that takes a few steps…"></textarea>
+      <div class="toolbar">
+        <label class="agent-picker" title="Which agent answers">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="10" height="8" rx="2"/><path d="M8 2.5V5M6 9h.01M10 9h.01"/></svg>
+          <span class="visually-hidden">Agent</span>
+          <select id="agent"></select>
+        </label>
+        <button id="reset" type="button" class="icon-button" title="Start a new chat">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9"/></svg>
+          <span class="new-chat-label">New chat</span>
+        </button>
+        <span class="spacer"></span>
+        <span id="status" aria-live="polite"></span>
+        <button id="go" type="submit" class="send" aria-label="Send" disabled>
+          <svg class="send-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>
+          <svg class="stop-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5"/></svg>
+        </button>
+      </div>
+    </form>
+    <div class="hint">
+      <span id="error" role="alert"></span>
+      <span class="keys"><kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line</span>
     </div>
-    <div id="error" role="alert"></div>
-  </form>
+  </div>
 </div>
 
 <script>
@@ -166,12 +285,13 @@
   const base = window.location.pathname.replace(/\/+$/, "");
   const el = id => document.getElementById(id);
   const transcript = el("transcript"), form = el("form"), prompt = el("prompt"), agentSelect = el("agent");
-  const goButton = el("go"), statusBox = el("status"), errorBox = el("error");
+  const goButton = el("go"), statusBox = el("status"), errorBox = el("error"), suggestions = el("suggestions");
 
   // crypto.randomUUID needs a secure context, which a plain-http LAN address is not.
   const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`);
 
   let activityType = "planner_executor";
+  let contextEvent = "context_usage";
   let threadId = newId();
   let history = [];          // the thread as AG-UI messages: user and assistant text only
   let controller = null;
@@ -204,6 +324,7 @@
       const names = info?.agents ?? ["amazonbedrock", "openai"];
       agentSelect.replaceChildren(...names.map(name => new Option(name, name)));
       if (info?.activityType) activityType = info.activityType;
+      if (info?.contextEvent) contextEvent = info.contextEvent;
     })
     .catch(() => agentSelect.replaceChildren(new Option("amazonbedrock", "amazonbedrock")));
 
@@ -213,8 +334,47 @@
     const text = prompt.value.trim();
     if (!text) { prompt.focus(); return; }
     prompt.value = "";
+    composerChanged();
     run(text);
   });
+
+  // Enter sends, Shift+Enter breaks the line. Not while an IME is composing: its Enter confirms a word.
+  prompt.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
+  prompt.addEventListener("input", composerChanged);
+  window.addEventListener("resize", composerChanged);
+
+  // Grows with its text up to the CSS max-height, then scrolls; and Send only lights up with something to send.
+  function composerChanged() {
+    prompt.style.height = "auto";
+    prompt.style.height = `${prompt.scrollHeight}px`;
+    goButton.disabled = !controller && !prompt.value.trim();
+  }
+
+  function setRunning(running) {
+    goButton.classList.toggle("running", running);
+    goButton.setAttribute("aria-label", running ? "Stop" : "Send");
+    goButton.title = running ? "Stop" : "Send";
+    composerChanged();
+  }
+
+  // Suggestions are for an empty chat: the first message puts them away, a new chat brings them back.
+  function showSuggestions() { suggestions.hidden = history.length > 0; }
+
+  // A suggestion fills the input rather than sending it: every run is paid, so the reader presses Send.
+  for (const card of suggestions.querySelectorAll(".suggestion")) {
+    card.title = card.dataset.prompt;
+    card.addEventListener("click", () => {
+      prompt.value = card.dataset.prompt;
+      composerChanged();
+      prompt.focus();
+      prompt.setSelectionRange(prompt.value.length, prompt.value.length);
+    });
+  }
 
   el("reset").addEventListener("click", () => {
     controller?.abort();
@@ -222,18 +382,22 @@
     history = [];
     transcript.replaceChildren();
     errorBox.textContent = "";
+    statusBox.textContent = "";
+    showSuggestions();
+    prompt.focus();
   });
 
   async function run(text) {
     errorBox.textContent = "";
     const userMessage = { id: newId(), role: "user", content: text };
     history.push(userMessage);
+    showSuggestions();
     pinned = true;
     addBubble("user", text);
 
     const state = { messages: new Map(), tools: new Map(), plans: new Map(), order: [] };
     controller = new AbortController();
-    goButton.textContent = "Stop";
+    setRunning(true);
     statusBox.textContent = "Running…";
     let terminated = false;
 
@@ -265,7 +429,7 @@
         if (content.trim()) history.push({ id, role: "assistant", content });
       }
       controller = null;
-      goButton.textContent = "Send";
+      setRunning(false);
     }
   }
 
@@ -305,8 +469,9 @@
         if (event.activityType !== activityType) break;
         let card = state.plans.get(event.messageId);
         if (!card) {
-          card = document.createElement("section");
+          card = document.createElement("details");
           card.className = "plan";
+          card.open = true;
           // The card's id is "activity-<tool call id>", so it sits right under the call that started it.
           const chip = state.tools.get(event.messageId.replace(/^activity-/, ""));
           if (chip) chip.after(card); else transcript.appendChild(card);
@@ -315,10 +480,15 @@
         renderPlan(card, event.content ?? {});
         break;
       }
+      case "CUSTOM": {
+        if (event.name === contextEvent) state.context = event.value;
+        break;
+      }
       case "RUN_FINISHED": {
         statusBox.textContent = event.outcome?.type === "interrupt"
           ? "The agent asked for approval, which this page does not support."
           : "";
+        runUsage(event.usage, state.context);
         break;
       }
       case "RUN_ERROR": {
@@ -328,19 +498,28 @@
     }
   }
 
-  // Each snapshot is the whole state, so the card is simply redrawn.
+  // Each snapshot is the whole state, so the card's contents are simply redrawn; the card itself
+  // stays, and with it whether the reader has opened or closed it.
   function renderPlan(card, plan) {
+    const steps = plan.steps ?? [];
+    const completed = steps.filter(step => step.status === "completed").length;
+
     const header = document.createElement("header");
     const title = document.createElement("h2");
     title.textContent = "Plan";
-    header.append(title, tokens(plan.usage), badge(plan.status));
+    const count = document.createElement("span");
+    count.className = "count";
+    if (steps.length) count.textContent = `${completed}/${steps.length} steps`;
+    header.append(title, count, tokens(plan.usage), badge(plan.status));
+    const summary = document.createElement("summary");
+    summary.appendChild(header);
 
     const goal = document.createElement("p");
     goal.className = "goal";
     goal.textContent = plan.goal ?? "";
 
     const list = document.createElement("ol");
-    for (const step of plan.steps ?? []) {
+    for (const step of steps) {
       const item = document.createElement("li");
       const head = document.createElement("div");
       head.className = "row";
@@ -358,7 +537,13 @@
       list.appendChild(item);
     }
 
-    card.replaceChildren(header, goal, list);
+    card.replaceChildren(summary, goal, list);
+
+    // Collapse once, when the last step completes; a reader who reopens it keeps it open.
+    if (steps.length && completed === steps.length && !card.dataset.collapsed) {
+      card.dataset.collapsed = "true";
+      card.open = false;
+    }
 
     if (plan.result) {
       const final = document.createElement("div");
@@ -378,6 +563,32 @@
       span.title = `${(usage.inputTokens ?? 0).toLocaleString()} in · ${(usage.outputTokens ?? 0).toLocaleString()} out`;
     }
     return span;
+  }
+
+  // RUN_FINISHED.usage is one entry per model, and already includes what any plan spent; context
+  // is the last model call's tokens, which the next run starts from. A provider that reports no
+  // usage adds no line.
+  function runUsage(usage, context) {
+    const entries = (Array.isArray(usage) ? usage : usage ? [usage] : [])
+      .map(entry => ({ ...entry, total: entry.totalTokens ?? ((entry.inputTokens ?? 0) + (entry.outputTokens ?? 0)) }))
+      .filter(entry => entry.total);
+    if (!entries.length) return;
+
+    const sum = key => entries.reduce((total, entry) => total + (entry[key] ?? 0), 0);
+    const line = document.createElement("div");
+    line.className = "run-usage";
+    line.textContent = `${sum("total").toLocaleString()} tokens used · ${sum("inputTokens").toLocaleString()} in · ${sum("outputTokens").toLocaleString()} out`;
+    const contextTotal = context?.totalTokens ?? ((context?.inputTokens ?? 0) + (context?.outputTokens ?? 0));
+    if (contextTotal) line.textContent += ` · ${contextTotal.toLocaleString()} in context`;
+    const breakdown = entries.map(entry => {
+      const parts = [`${(entry.inputTokens ?? 0).toLocaleString()} in`, `${(entry.outputTokens ?? 0).toLocaleString()} out`];
+      if (entry.cachedInputTokens) parts.push(`${entry.cachedInputTokens.toLocaleString()} cached`);
+      if (entry.reasoningTokens) parts.push(`${entry.reasoningTokens.toLocaleString()} reasoning`);
+      return `${entry.model ?? "model"}: ${entry.total.toLocaleString()} (${parts.join(", ")})`;
+    });
+    if (contextTotal) breakdown.push(`Context for the next run: ${contextTotal.toLocaleString()} (the last call's ${(context.inputTokens ?? 0).toLocaleString()} in + ${(context.outputTokens ?? 0).toLocaleString()} out)`);
+    line.title = breakdown.join("\n");
+    transcript.appendChild(line);
   }
 
   function badge(status) {

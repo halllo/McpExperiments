@@ -82,6 +82,8 @@ app.MapScalarApiReference();
 app.MapDevUI();
 app.MapArchitectureCouncil();
 app.MapAgUiChat();
+// The chat is the front door. PathBase keeps the redirect inside /my-agent behind the gateway.
+app.MapGet("/", (HttpContext http) => Results.Redirect($"{http.Request.PathBase}/ag-ui-chat")).ExcludeFromDescription();
 app.MapOpenAIResponses();
 app.MapOpenAIConversations();
 

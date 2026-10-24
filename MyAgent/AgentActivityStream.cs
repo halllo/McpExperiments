@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Threading.Channels;
 using AGUI.Abstractions;
 using Microsoft.Agents.AI;
@@ -22,6 +23,13 @@ namespace MyAgent;
 public sealed class AgentActivityPublisher
 {
     const string RunOptionKey = "agui_activity_publisher";
+
+    /// <summary>
+    /// The name of the <see cref="CustomEvent"/> sent at the end of every run, whose value is the last
+    /// model call's tokens as <c>{ inputTokens, outputTokens, totalTokens }</c>: what the conversation
+    /// holds once the run is over, and so what the next run starts from, before its new message.
+    /// </summary>
+    public const string ContextEventName = "context_usage";
 
     readonly ChannelWriter<AgentResponseUpdate> _writer;
 
@@ -86,7 +94,8 @@ public static class AgentActivityStreamExtensions
             options ??= new AgentRunOptions();
 
             var channel = Channel.CreateUnbounded<AgentResponseUpdate>(new UnboundedChannelOptions { SingleReader = true });
-            AgentActivityPublisher.Attach(options, new AgentActivityPublisher(channel.Writer));
+            var publisher = new AgentActivityPublisher(channel.Writer);
+            AgentActivityPublisher.Attach(options, publisher);
 
             // Cancelled when the caller stops reading, so a disconnect still stops the run spending.
             using var pumpCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -94,9 +103,27 @@ public static class AgentActivityStreamExtensions
             {
                 try
                 {
+                    // Each model call reports its usage as it ends, so the last report is the last call's.
+                    // Only the agent's own calls pass through here: a tool's usage goes to the channel directly.
+                    UsageDetails? lastCall = null;
                     await foreach (var update in base.RunCoreStreamingAsync(messages, session, options, pumpCancellation.Token))
                     {
+                        if (update.Contents.OfType<UsageContent>().LastOrDefault() is { } used) lastCall = used.Details;
                         await channel.Writer.WriteAsync(update, pumpCancellation.Token);
+                    }
+
+                    if (lastCall is not null)
+                    {
+                        publisher.Publish(new CustomEvent
+                        {
+                            Name = AgentActivityPublisher.ContextEventName,
+                            Value = JsonSerializer.SerializeToElement(new
+                            {
+                                inputTokens = lastCall.InputTokenCount,
+                                outputTokens = lastCall.OutputTokenCount,
+                                totalTokens = lastCall.TotalTokenCount,
+                            }, WorkflowAguiStream.Json),
+                        });
                     }
 
                     channel.Writer.TryComplete();
