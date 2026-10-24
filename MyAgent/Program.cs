@@ -27,6 +27,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddDevUI();
 builder.Services.AddOpenAIResponses();
 builder.Services.AddOpenAIConversations();
+builder.Services.AddAGUIServer();
 
 builder.Services.AddSingleton<IAmazonBedrockAgentCore>(sp =>
 {
@@ -47,17 +48,25 @@ builder.Services.AddSingleton<IAmazonBedrockAgentCoreControl>(sp =>
 });
 builder.Services.AddSingleton<AgentCoreMemory>();
 
-var openai = builder.AddAIAgent("openai", (sp, key) => Factory.CreateAgent(
-    name: key,
-    chatClient: Factory.OpenAI(sp.GetRequiredService<IConfiguration>(), sp),
-    services: sp,
-    tools: Factory.GetTools()));
+var openai = builder.AddAIAgent("openai", (sp, key) =>
+{
+    var chatClient = Factory.OpenAI(sp.GetRequiredService<IConfiguration>(), sp);
+    return Factory.CreateAgent(
+        name: key,
+        chatClient: chatClient,
+        services: sp,
+        tools: Factory.GetTools(plannerChatClient: chatClient));
+});
 
-var amazonbedrock = builder.AddAIAgent("amazonbedrock", (sp, key) => Factory.CreateAgent(
-    name: key,
-    chatClient: Factory.AmazonBedrock(sp.GetRequiredService<IConfiguration>(), sp),
-    services: sp,
-    tools: Factory.GetTools()));
+var amazonbedrock = builder.AddAIAgent("amazonbedrock", (sp, key) =>
+{
+    var chatClient = Factory.AmazonBedrock(sp.GetRequiredService<IConfiguration>(), sp);
+    return Factory.CreateAgent(
+        name: key,
+        chatClient: chatClient,
+        services: sp,
+        tools: Factory.GetTools(plannerChatClient: chatClient));
+});
 
 var architectureCouncil = builder.AddArchitectureCouncil();
 
@@ -72,6 +81,7 @@ app.MapOpenApi();
 app.MapScalarApiReference();
 app.MapDevUI();
 app.MapArchitectureCouncil();
+app.MapAgentAgui();
 app.MapOpenAIResponses();
 app.MapOpenAIConversations();
 

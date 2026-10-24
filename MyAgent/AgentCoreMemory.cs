@@ -34,7 +34,7 @@ public class AgentCoreMemory(
         var response = await agentCore.RetrieveMemoryRecordsAsync(new RetrieveMemoryRecordsRequest
         {
             MemoryId = await GetMemoryId(cancellationToken),
-            // Namespace only matches records in exactly that namespace (despite the docs saying prefix), NamespacePath includes children.
+            // Namespace only matches records in exactly that namespace; NamespacePath includes children.
             NamespacePath = UserNamespace(actorId),
             SearchCriteria = new SearchCriteria { SearchQuery = query, TopK = topK },
             MaxResults = topK,
@@ -105,7 +105,7 @@ public class AgentCoreMemory(
                 var response = await agentCore.BatchDeleteMemoryRecordsAsync(new BatchDeleteMemoryRecordsRequest
                 {
                     MemoryId = id,
-                    // Delete wants the namespace exactly as listed, with one leading and one trailing slash.
+                    // Delete wants the namespace exactly as listed (one leading and one trailing slash); a trimmed one is rejected as not normalized.
                     Records = [.. chunk.Select(r => new MemoryRecordDeleteInput { MemoryRecordId = r.MemoryRecordId, Namespace = r.Namespaces?.FirstOrDefault() })],
                 }, cancellationToken);
                 if (response.FailedRecords is { Count: > 0 } failed)
@@ -199,9 +199,9 @@ public class AgentCoreMemory(
             EventExpiryDuration = 30, // days of short-term event retention
             MemoryStrategies =
             [
-                new MemoryStrategyInput { SemanticMemoryStrategy = new SemanticMemoryStrategyInput { Name = "Facts", NamespaceTemplates = ["/users/{actorId}/facts"] } },
-                new MemoryStrategyInput { UserPreferenceMemoryStrategy = new UserPreferenceMemoryStrategyInput { Name = "Preferences", NamespaceTemplates = ["/users/{actorId}/preferences"] } },
-                new MemoryStrategyInput { SummaryMemoryStrategy = new SummaryMemoryStrategyInput { Name = "Summaries", NamespaceTemplates = ["/summaries/{actorId}/{sessionId}"] } },
+                new MemoryStrategyInput { SemanticMemoryStrategy = new SemanticMemoryStrategyInput { Name = "Facts", NamespaceTemplates = ["/users/{actorId}/facts/"] } },
+                new MemoryStrategyInput { UserPreferenceMemoryStrategy = new UserPreferenceMemoryStrategyInput { Name = "Preferences", NamespaceTemplates = ["/users/{actorId}/preferences/"] } },
+                new MemoryStrategyInput { SummaryMemoryStrategy = new SummaryMemoryStrategyInput { Name = "Summaries", NamespaceTemplates = ["/summaries/{actorId}/{sessionId}/"] } },
             ],
         }, cancellationToken);
         return response.Memory.Id;

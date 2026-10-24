@@ -2,6 +2,7 @@ using System.Text.Json;
 using AGUI.Abstractions;
 using AGUI.Server;
 using Microsoft.Agents.AI.Workflows;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using static MyAgent.Tests.CouncilStubs;
@@ -88,17 +89,57 @@ public sealed class WorkflowAguiStreamTests
 
         AguiConformance.Assert(events);
 
-        // Without a preamble the call's parent message carries no text, so the mapper never opens
-        // it — and TEXT_MESSAGE_START is the only event that names the speaker.
-        var messageNames = events.OfType<TextMessageStartEvent>().ToDictionary(s => s.MessageId, s => s.Name);
+        // Without a preamble the call's parent message carries no text, so the mapper would never
+        // open it — and TEXT_MESSAGE_START is the only event that names the speaker.
+        var starts = events.OfType<TextMessageStartEvent>().ToList();
         var calls = events.OfType<ToolCallStartEvent>().ToList();
         Assert.AreEqual(3, calls.Count, "Each participant called its tool once.");
 
         foreach (ToolCallStartEvent call in calls)
         {
-            Assert.IsTrue(messageNames.TryGetValue(call.ParentMessageId!, out var name),
+            Assert.IsTrue(starts.Any(s => s.MessageId == call.ParentMessageId),
                 $"Tool call '{call.ToolCallId}' names parent '{call.ParentMessageId}', which never opened.");
-            Assert.IsFalse(string.IsNullOrEmpty(name), $"Tool call '{call.ToolCallId}' was placed in a message with no speaker.");
+        }
+
+        CollectionAssert.AreEqual(
+            new[] { "first_agent", "second_agent", "third_agent" },
+            calls.Select(call => starts.First(s => s.MessageId == call.ParentMessageId).Name).ToArray(),
+            "Each call should be placed with the participant that made it.");
+
+        Assert.IsTrue(starts.All(s => s.Role == "assistant"), "Every message the council opens is the assistant's.");
+
+        // The empty text exists only on the wire. Leaking it into the transcript would change what
+        // every later participant is shown — and the copy races the agent, so this can only flake.
+        Assert.IsFalse(
+            chat.Requests.SelectMany(r => r.Messages).SelectMany(m => m.Contents).Any(c => c is TextContent { Text: "" }),
+            "The empty text put in front of a call reached the model's transcript.");
+    }
+
+    [TestMethod]
+    [Timeout(30_000)]
+    public async Task Run_WithTextAfterACall_NeverOpensAMessageTwice()
+    {
+        var chat = new StubChatClient { WithToolCall = true, SkipPreamble = true, TextAfterCall = true };
+        var events = await Collect(Council(chat), Context("a topic"));
+
+        // The checker fails on an id that opens twice, which is what the mapper does when text
+        // follows a call in the same message.
+        AguiConformance.Assert(events);
+
+        var starts = events.OfType<TextMessageStartEvent>().ToList();
+        var calls = events.OfType<ToolCallStartEvent>().ToList();
+        var afterCall = events.OfType<TextMessageContentEvent>().Where(c => c.Delta == "while that runs. ").ToList();
+        Assert.AreEqual(calls.Count, afterCall.Count, "The text after each call should still reach the client.");
+
+        // In stream order, each call is followed by its own participant's text: same speaker, but
+        // under a fresh id, since the call's id has already closed.
+        foreach (var (call, text) in calls.Zip(afterCall))
+        {
+            Assert.AreNotEqual(call.ParentMessageId, text.MessageId, "The text after a call reopened the call's message.");
+            Assert.AreEqual(
+                starts.First(s => s.MessageId == call.ParentMessageId).Name,
+                starts.First(s => s.MessageId == text.MessageId).Name,
+                "The text after a call should be attributed to whoever made the call.");
         }
     }
 

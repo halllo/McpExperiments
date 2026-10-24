@@ -8,6 +8,7 @@ import {
 
 import cors from "cors";
 import express from "express";
+import { z } from "zod";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -26,7 +27,7 @@ const getServer = () => {
         {
             title: "Get Time",
             description: "Returns the current server time.",
-            inputSchema: {},
+            inputSchema: z.object({}),
             _meta: { ui: { resourceUri } },
         },
         async () => {

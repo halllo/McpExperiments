@@ -76,14 +76,19 @@ public static class Factory
                 services: services)
             .AsBuilder()
             .UseCodeInterpreterSessionPerRun()
+            .UseActivityStream()
             .UseOpenTelemetry(sourceName: applicationName, configure: c => c.EnableSensitiveData = true)
             .Build(services)
             ;
     }
 
-    public static AIFunction[] GetTools()
+    /// <param name="plannerChatClient">
+    /// When given, adds the <see cref="PlannerExecutor.ToolName"/> tool, whose planner and executor run on
+    /// this client. The executor gets the other tools, so a step cannot start a plan of its own.
+    /// </param>
+    public static AIFunction[] GetTools(IChatClient? plannerChatClient = null)
     {
-        return [
+        AIFunction[] tools = [
             AIFunctionFactory.Create(
                 method: (IServiceProvider services) =>
                 {
@@ -107,6 +112,8 @@ public static class Factory
                 description: "Execute Python code using the code interpreter."
             ),
         ];
+
+        return plannerChatClient is null ? tools : [.. tools, PlannerExecutor.CreateTool(plannerChatClient, tools)];
     }
 
 #pragma warning disable MAAI001

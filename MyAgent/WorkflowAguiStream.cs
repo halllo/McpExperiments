@@ -29,6 +29,11 @@ namespace MyAgent;
 /// publish what the HTTP one is careful to strip.
 /// </para>
 /// <para>
+/// It also keeps every message attributable: a tool call always names a parent message that opened
+/// with the speaker's name, and no message id opens twice (see <see cref="Updates"/> and
+/// <see cref="ReopenUnderFreshId"/>).
+/// </para>
+/// <para>
 /// What bounds a run is the caller hanging up: disconnecting disposes this enumerator, which cancels
 /// the run and stops it buying tokens within milliseconds. There is deliberately no server-side
 /// deadline — a client that stays connected while the run hangs is bounded only by the provider's own
@@ -120,14 +125,13 @@ public static class WorkflowAguiStream
         var terminated = false;
         var count = 0;
 
-        // Who wrote each message, and which messages the client has seen open. A participant that
-        // calls a tool without a preamble produces a TOOL_CALL_START whose parent message never
-        // opened — and only TEXT_MESSAGE_START names the speaker, so the page cannot place the call.
-        var authors = new Dictionary<string, string>();
+        // Every message id the client has seen open, and the fresh id standing in for one the mapper
+        // reopened (see ReopenUnderFreshId).
         var openedMessageIds = new HashSet<string>();
+        var reopenedAs = new Dictionary<string, string>();
 
         IAsyncEnumerable<BaseEvent> events = Guarded(
-            Updates(agent, context.Messages, outcome, authors, cancellationToken).AsAGUIEventStreamAsync(context, cancellationToken),
+            Updates(agent, context.Messages, outcome, cancellationToken).AsAGUIEventStreamAsync(context, cancellationToken),
             outcome,
             cancellationToken);
 
@@ -139,6 +143,8 @@ public static class WorkflowAguiStream
             {
                 break;
             }
+
+            ReopenUnderFreshId(evt, openedMessageIds, reopenedAs);
 
             openMessageId = evt switch
             {
@@ -153,20 +159,6 @@ public static class WorkflowAguiStream
             if (evt is RunFinishedEvent && outcome.Incomplete)
             {
                 break;
-            }
-
-            if (evt is TextMessageStartEvent opened)
-            {
-                openedMessageIds.Add(opened.MessageId);
-            }
-
-            // Give the call's parent message the empty start/end it never got, so it carries the
-            // speaker. Emitted closed: a message left open here would swallow the next one's text.
-            if (evt is ToolCallStartEvent { ParentMessageId: { } parent } && openedMessageIds.Add(parent))
-            {
-                yield return Scrub(new TextMessageStartEvent { MessageId = parent, Name = authors.GetValueOrDefault(parent) });
-                yield return Scrub(new TextMessageEndEvent { MessageId = parent });
-                count += 2;
             }
 
             terminated = evt is RunFinishedEvent or RunErrorEvent;
@@ -203,20 +195,31 @@ public static class WorkflowAguiStream
     /// instead of propagating it, and ending the stream.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// This helper exists only because a C# iterator cannot yield from inside a try/catch. Confining
     /// the manual enumerator loop here lets the caller read as one linear pass with a single place
     /// where a terminal event is decided.
+    /// </para>
+    /// <para>
+    /// Applied twice: around the mapper, and around the hosted workflow itself. A workflow reports
+    /// most failures as content, but its hosting agent can still throw — and AG-UI's mapper catches
+    /// that itself and answers with a RUN_ERROR of its own, so the failure would never be logged or
+    /// referenced.
+    /// Recording it before the mapper sees it lets the mapper sign off as finished, which the
+    /// caller already treats as a failed run.
+    /// </para>
     /// </remarks>
-    static async IAsyncEnumerable<BaseEvent> Guarded(
-        IAsyncEnumerable<BaseEvent> events,
+    static async IAsyncEnumerable<T> Guarded<T>(
+        IAsyncEnumerable<T> events,
         RunOutcome outcome,
         [EnumeratorCancellation] CancellationToken cancellationToken)
+        where T : class
     {
         await using var enumerator = events.GetAsyncEnumerator(cancellationToken);
 
         while (true)
         {
-            BaseEvent? current = null;
+            T? current = null;
 
             try
             {
@@ -233,7 +236,7 @@ public static class WorkflowAguiStream
             }
 
             // Null means the stream ended, either normally or because it threw. Every event the
-            // mapper yields is a constructed one, so null is never a real event.
+            // mapper or the agent yields is a constructed one, so null is never a real one.
             if (current is null)
             {
                 yield break;
@@ -311,19 +314,56 @@ public static class WorkflowAguiStream
     }
 
     /// <summary>
+    /// The mapper closes the open message before every tool call and reopens it when more text
+    /// arrives under the same id — a TEXT_MESSAGE_START for an id the client has already seen
+    /// closed, which a client may reject or keep as a duplicate message. A reopened message streams
+    /// on under a fresh id until it closes; the speaker on its start is unchanged, so the page still
+    /// merges it into the same turn.
+    /// </summary>
+    static void ReopenUnderFreshId(BaseEvent evt, HashSet<string> openedMessageIds, Dictionary<string, string> reopenedAs)
+    {
+        switch (evt)
+        {
+            case TextMessageStartEvent start when !openedMessageIds.Add(start.MessageId):
+                var freshId = Guid.NewGuid().ToString("N");
+                reopenedAs[start.MessageId] = freshId;
+                openedMessageIds.Add(freshId);
+                start.MessageId = freshId;
+                break;
+
+            case TextMessageContentEvent content when reopenedAs.TryGetValue(content.MessageId, out var contentId):
+                content.MessageId = contentId;
+                break;
+
+            case TextMessageEndEvent end when reopenedAs.Remove(end.MessageId, out var endId):
+                end.MessageId = endId;
+                break;
+        }
+    }
+
+    /// <summary>
     /// Runs the hosted workflow, adapts its updates to the chat shape AG-UI maps from, and notes any
     /// error the run reports as content on its way past.
     /// </summary>
+    /// <remarks>
+    /// A participant that calls a tool before saying anything gets an empty text in front of the
+    /// call. Without it the mapper never opens the call's parent message, and TEXT_MESSAGE_START is
+    /// the only event that names the speaker — so the page could not tell whose call it was. The
+    /// mapper skips the empty delta, so the message opens and closes with nothing in it.
+    /// </remarks>
     static async IAsyncEnumerable<ChatResponseUpdate> Updates(
         AIAgent agent,
         IEnumerable<ChatMessage> messages,
         RunOutcome outcome,
-        Dictionary<string, string> authors,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        // Messages that have already said something or called a tool. Only the first of the two
+        // decides: an empty text after an earlier call would make the mapper reopen the message.
+        var startedMessageIds = new HashSet<string>();
+
         // No ChatOptions are forwarded: the tools an AG-UI client advertises are its own to run,
         // and this workflow's participants bring the tools they need.
-        await foreach (AgentResponseUpdate update in agent.RunStreamingAsync(messages, cancellationToken: cancellationToken))
+        await foreach (AgentResponseUpdate update in Guarded(agent.RunStreamingAsync(messages, cancellationToken: cancellationToken), outcome, cancellationToken))
         {
             if (update.Contents.OfType<ErrorContent>().FirstOrDefault() is { } error)
             {
@@ -334,12 +374,20 @@ public static class WorkflowAguiStream
                 outcome.Detail ??= error.Message;
             }
 
-            if (update.MessageId is { } messageId && update.AuthorName is { } author)
+            ChatResponseUpdate chat = update.AsChatResponseUpdate();
+
+            if (chat.MessageId is { } messageId
+                && chat.Contents.FirstOrDefault(content => content is TextContent or FunctionCallContent) is { } first
+                && startedMessageIds.Add(messageId)
+                && first is FunctionCallContent)
             {
-                authors[messageId] = author;
+                // A clone, not an edit: the update is the agent's own, which it folds into the
+                // transcript every later participant is shown.
+                chat = chat.Clone();
+                chat.Contents = [new TextContent(string.Empty), .. chat.Contents];
             }
 
-            yield return update.AsChatResponseUpdate();
+            yield return chat;
         }
     }
 

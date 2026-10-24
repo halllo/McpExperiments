@@ -7,16 +7,12 @@ using System.Web;
 /// <summary>
 /// One connect must cost the user exactly one login.
 ///
-/// This test FAILS today, which is the point: the client prefers protocol 2026-07-28, so it opens the
-/// connection with a server/discover probe bounded by <see cref="McpClientOptions.DiscoverProbeTimeout"/> —
-/// 5 seconds by default. An interactive login takes longer than that, so the probe, and with it the login
-/// its 401 kicked off, is abandoned. The SDK falls back to the initialize handshake, which carries no
-/// token, earns its own 401, and opens a second browser tab.
-///
-/// It goes green once the connect holds a token for the whole handshake, by any of:
-///   - DiscoverProbeTimeout = Timeout.InfiniteTimeSpan, with InitializationTimeout raised past a real login
-///   - ProtocolVersion pinned to an initialize-capable revision, so no probe is issued
-///   - obtaining the token before connecting, so nothing 401s mid-handshake
+/// A regression test. The client prefers protocol 2026-07-28, so it opens the connection with a
+/// server/discover probe bounded by <see cref="McpClientOptions.DiscoverProbeTimeout"/> — 5 seconds by
+/// default. Up to ModelContextProtocol 2.2 that bound also covered the OAuth flow its 401 kicked off, so an
+/// interactive login outlived the probe and was abandoned; the SDK fell back to the initialize handshake,
+/// which carried no token, earned its own 401, and opened a second browser tab. 2.3 excludes OAuth from
+/// the probe timeout, and one connect costs one login again.
 ///
 /// See https://dev.azure.com/stp-pde/Legal%20Twin/_workitems/edit/128584.
 /// </summary>

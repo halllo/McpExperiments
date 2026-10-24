@@ -105,6 +105,12 @@ sealed class StubChatClient : IChatClient
     /// <summary>Call the tool straight away, with no text before it — which real models do.</summary>
     public bool SkipPreamble { get; init; }
 
+    /// <summary>
+    /// Keep talking after the call, in the same message — text between tool calls of one response.
+    /// The mapper closes the message for the call and opens the same id again for the text.
+    /// </summary>
+    public bool TextAfterCall { get; init; }
+
     /// <summary>How many calls have been made — i.e. what the run has cost.</summary>
     public int Calls => Volatile.Read(ref _calls);
 
@@ -145,14 +151,24 @@ sealed class StubChatClient : IChatClient
 
         if (WithToolCall && call <= 3)
         {
-            // A tool-calling agent speaks twice: a preamble carrying the call, then its answer.
+            // A tool-calling agent usually speaks twice: a preamble carrying the call, then its answer.
+            // Null leaves the message id to the workflow; a fixed one pins the call and the text
+            // around it to one message explicitly.
+            string? callMessageId = TextAfterCall ? $"reply-{call}" : null;
+
             if (!SkipPreamble)
             {
-                yield return new ChatResponseUpdate(ChatRole.Assistant, "Let me check. ");
+                yield return new ChatResponseUpdate(ChatRole.Assistant, "Let me check. ") { MessageId = callMessageId };
             }
 
             yield return new ChatResponseUpdate(ChatRole.Assistant,
-                [new FunctionCallContent($"call-{call}", "get_role", new Dictionary<string, object?>())]);
+                [new FunctionCallContent($"call-{call}", "get_role", new Dictionary<string, object?>())]) { MessageId = callMessageId };
+
+            if (TextAfterCall)
+            {
+                yield return new ChatResponseUpdate(ChatRole.Assistant, "while that runs. ") { MessageId = callMessageId };
+            }
+
             yield return new ChatResponseUpdate(ChatRole.Tool,
                 [new FunctionResultContent($"call-{call}", $"role {call}")]);
         }

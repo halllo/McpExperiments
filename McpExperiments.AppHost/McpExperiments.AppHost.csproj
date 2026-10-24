@@ -5,6 +5,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- ASPIRE010: keep DCP and the dashboard restored from NuGet at the SDK's version, rather than from
+         whichever Aspire CLI bundle is installed, so the build is reproducible from this file alone. -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
