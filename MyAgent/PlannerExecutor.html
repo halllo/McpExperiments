@@ -86,6 +86,7 @@
   .plan li { padding: 8px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); }
   .plan li .title { font-weight: 600; }
   .plan li .result { margin-top: 4px; font-size: 13px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .plan .tokens { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .plan .final { margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
   .badge { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
@@ -282,7 +283,7 @@
     const header = document.createElement("header");
     const title = document.createElement("h2");
     title.textContent = "Plan";
-    header.append(title, badge(plan.status));
+    header.append(title, tokens(plan.usage), badge(plan.status));
 
     const goal = document.createElement("p");
     goal.className = "goal";
@@ -296,7 +297,7 @@
       const name = document.createElement("span");
       name.className = "title";
       name.textContent = step.title;
-      head.append(badge(step.status), name);
+      head.append(badge(step.status), name, tokens(step.usage));
       item.appendChild(head);
       if (step.result) {
         const result = document.createElement("div");
@@ -315,6 +316,18 @@
       final.textContent = plan.result;
       card.appendChild(final);
     }
+  }
+
+  // Shown only once a call has reported usage; a provider that reports none leaves it blank.
+  function tokens(usage) {
+    const span = document.createElement("span");
+    span.className = "tokens";
+    const total = usage?.totalTokens ?? ((usage?.inputTokens ?? 0) + (usage?.outputTokens ?? 0));
+    if (usage && total) {
+      span.textContent = `${total.toLocaleString()} tokens`;
+      span.title = `${(usage.inputTokens ?? 0).toLocaleString()} in · ${(usage.outputTokens ?? 0).toLocaleString()} out`;
+    }
+    return span;
   }
 
   function badge(status) {

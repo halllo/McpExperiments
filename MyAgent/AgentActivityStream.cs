@@ -40,6 +40,20 @@ public sealed class AgentActivityPublisher
     public void Publish(BaseEvent evt) =>
         _writer.TryWrite(new AgentResponseUpdate { RawRepresentation = new ChatResponseUpdate { RawRepresentation = evt } });
 
+    /// <summary>
+    /// Adds <paramref name="usage"/> to the run's token count. Unlike <see cref="Publish"/> this is
+    /// ordinary content, so every consumer of the run tallies it — AG-UI folds it into
+    /// <c>RUN_FINISHED.usage</c>, grouped by <paramref name="modelId"/>.
+    /// </summary>
+    public void PublishUsage(UsageDetails usage, string? modelId) =>
+        _writer.TryWrite(new AgentResponseUpdate
+        {
+            // Carried by the raw update because the agent-level conversion back to a chat update
+            // keeps the raw one whole, model id included, and would otherwise drop the model id.
+            RawRepresentation = new ChatResponseUpdate { Contents = [new UsageContent(usage)], ModelId = modelId },
+            Contents = [new UsageContent(usage)],
+        });
+
     internal static void Attach(AgentRunOptions options, AgentActivityPublisher publisher)
     {
         options.AdditionalProperties ??= [];

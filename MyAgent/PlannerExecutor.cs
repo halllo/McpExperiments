@@ -17,10 +17,19 @@ namespace MyAgent;
 /// front end can draw the plan and tick its steps off as they happen.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Every snapshot carries the whole state and replaces the previous one under the same message id,
 /// so a client that joins late or drops a frame still ends up right. The content is
-/// <c>{ goal, status, steps: [{ title, status, result }], result }</c>, with <c>status</c> one of
-/// <see cref="Status"/>'s values.
+/// <c>{ goal, status, steps: [{ title, status, result, usage }], result, usage }</c>, with
+/// <c>status</c> one of <see cref="Status"/>'s values and <c>usage</c> the tokens spent, as
+/// <c>{ inputTokens, outputTokens, totalTokens }</c>.
+/// </para>
+/// <para>
+/// Every model call the workflow makes — planner, each step, synthesizer — records its tokens. The
+/// total is on the card, in the log, and published into the calling run as usage, so the run's own
+/// tally (AG-UI's <c>RUN_FINISHED.usage</c> among them) includes what the plan cost. A step that
+/// throws reports no usage, so a failed plan's total can fall short of what it spent.
+/// </para>
 /// </remarks>
 public static class PlannerExecutor
 {
@@ -198,6 +207,12 @@ public static class PlannerExecutor
                     case SynthesisStartedEvent:
                         activity.Synthesizing();
                         break;
+                    case UsageRecordedEvent used:
+                        // Not a change on its own: each call's usage arrives just before the event
+                        // that ends it, and that one publishes.
+                        activity.Used(used.StepIndex, used.Usage);
+                        changed = false;
+                        break;
                     case WorkflowOutputEvent outputEvent when outputEvent.Is<string>(out var text):
                         output = text;
                         changed = false;
@@ -240,6 +255,16 @@ public static class PlannerExecutor
             {
                 await codeInterpreter.CloseCodeInterpreter(new AgentRunOptions { AdditionalProperties = runProperties }, CancellationToken.None);
             }
+        }
+
+        if (activity.Usage is { } usage)
+        {
+            logger.LogInformation(
+                "Planner-executor used {InputTokens} input and {OutputTokens} output tokens ({TotalTokens} total) for {StepCount} steps.",
+                usage.InputTokenCount, usage.OutputTokenCount, usage.TotalTokenCount, activity.StepCount);
+
+            // Counted with the calling run's own usage, under the model the workflow ran on.
+            publisher?.PublishUsage(usage, chatClient.GetService<ChatClientMetadata>()?.DefaultModelId);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -292,13 +317,24 @@ public static class PlannerExecutor
 
     public sealed class SynthesisStartedEvent() : WorkflowEvent;
 
+    /// <summary>The tokens one model call spent: the planner's and the synthesizer's have no step index.</summary>
+    public sealed class UsageRecordedEvent(int? stepIndex, UsageDetails usage) : WorkflowEvent(usage)
+    {
+        public int? StepIndex => stepIndex;
+        public UsageDetails Usage => usage;
+    }
+
     // --- executors ----------------------------------------------------------------------------------
+
+    static ValueTask RecordUsageAsync(IWorkflowContext context, int? stepIndex, UsageDetails? usage, CancellationToken cancellationToken) =>
+        usage is null ? ValueTask.CompletedTask : context.AddEventAsync(new UsageRecordedEvent(stepIndex, usage), cancellationToken);
 
     sealed class PlanningExecutor(AIAgent planner) : Executor<string, PlannedGoal>("planning")
     {
         public override async ValueTask<PlannedGoal> HandleAsync(string goal, IWorkflowContext context, CancellationToken cancellationToken = default)
         {
             var response = await planner.RunAsync<Plan>($"Goal: {goal}", cancellationToken: cancellationToken);
+            await RecordUsageAsync(context, null, response.Usage, cancellationToken);
 
             var steps = response.Result?.Steps?
                 .Where(step => !string.IsNullOrWhiteSpace(step?.Title))
@@ -335,6 +371,7 @@ public static class PlannerExecutor
                         options: runProperties is null ? null : new AgentRunOptions { AdditionalProperties = runProperties },
                         cancellationToken: cancellationToken);
                     result = response.Text;
+                    await RecordUsageAsync(context, index, response.Usage, cancellationToken);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -348,6 +385,7 @@ public static class PlannerExecutor
 
             await context.AddEventAsync(new SynthesisStartedEvent(), cancellationToken);
             var answer = await synthesizer.RunAsync(SynthesisPrompt(plan, results), cancellationToken: cancellationToken);
+            await RecordUsageAsync(context, null, answer.Usage, cancellationToken);
             await context.YieldOutputAsync(answer.Text, cancellationToken);
         }
 
@@ -397,11 +435,41 @@ public static class PlannerExecutor
             public string Title { get; } = title;
             public string Status { get; set; } = PlannerExecutor.Status.Pending;
             public string? Result { get; set; }
+            public UsageDetails? Usage { get; set; }
         }
 
         readonly List<Step> _steps = [];
         string _status = Status.Planning;
         string? _result;
+
+        /// <summary>Everything the workflow spent, steps or not. Null until a call reports usage.</summary>
+        public UsageDetails? Usage { get; private set; }
+
+        public int StepCount => _steps.Count;
+
+        public void Used(int? stepIndex, UsageDetails usage)
+        {
+            Usage = Sum(Usage, usage);
+
+            if (stepIndex is { } index)
+            {
+                _steps[index].Usage = Sum(_steps[index].Usage, usage);
+            }
+        }
+
+        static UsageDetails Sum(UsageDetails? total, UsageDetails usage)
+        {
+            total ??= new UsageDetails();
+            total.Add(usage);
+            return total;
+        }
+
+        static object? Tokens(UsageDetails? usage) => usage is null ? null : new
+        {
+            inputTokens = usage.InputTokenCount,
+            outputTokens = usage.OutputTokenCount,
+            totalTokens = usage.TotalTokenCount,
+        };
 
         public void Planned(IEnumerable<PlanStep> steps)
         {
@@ -448,8 +516,9 @@ public static class PlannerExecutor
             {
                 goal,
                 status = _status,
-                steps = _steps.Select(step => new { title = step.Title, status = step.Status, result = step.Result }),
+                steps = _steps.Select(step => new { title = step.Title, status = step.Status, result = step.Result, usage = Tokens(step.Usage) }),
                 result = _result,
+                usage = Tokens(Usage),
             }, WorkflowAguiStream.Json),
         };
     }

@@ -47,6 +47,19 @@ public sealed class PlannerExecutorTests
 
     [TestMethod]
     [Timeout(30_000)]
+    public async Task Run_LogsTheTokensOfEveryCallItMade()
+    {
+        var chat = new ScriptedChatClient { StepCount = 2 };
+        var log = new CapturingLogger();
+
+        await PlannerExecutor.RunAsync(Goal, chat, [], Services(log), CancellationToken.None);
+
+        // Planner, two steps, synthesizer.
+        StringAssert.Contains(log.All, $"({4 * ScriptedChatClient.WorkflowCallTokens} total) for 2 steps");
+    }
+
+    [TestMethod]
+    [Timeout(30_000)]
     public async Task Run_CutsAPlanThatIsLongerThanMaxSteps()
     {
         var chat = new ScriptedChatClient { StepCount = PlannerExecutor.MaxSteps + 3 };
@@ -109,6 +122,31 @@ public sealed class PlannerExecutorTests
 
     [TestMethod]
     [Timeout(30_000)]
+    public async Task Stream_RecordsTheTokensOfEveryStepAndTheirTotal()
+    {
+        var chat = new ScriptedChatClient { StepCount = 2 };
+
+        var events = await Collect(Agent(chat), Context(Goal));
+
+        var last = events.OfType<ActivitySnapshotEvent>().Last();
+        foreach (var step in last.Content.GetProperty("steps").EnumerateArray())
+        {
+            Assert.AreEqual(ScriptedChatClient.WorkflowCallTokens, step.GetProperty("usage").GetProperty("totalTokens").GetInt64());
+        }
+
+        // Planner, two steps and synthesizer: the card counts the whole plan, not only its steps.
+        var workflowTokens = 4 * ScriptedChatClient.WorkflowCallTokens;
+        Assert.AreEqual(workflowTokens, last.Content.GetProperty("usage").GetProperty("totalTokens").GetInt64());
+        Assert.AreEqual(4 * 10, last.Content.GetProperty("usage").GetProperty("inputTokens").GetInt64());
+
+        // The run's own tally: the agent's two calls, plus everything the plan spent inside its tool.
+        var finished = (RunFinishedEvent)events[^1];
+        Assert.IsNotNull(finished.Usage, "RUN_FINISHED must carry usage.");
+        Assert.AreEqual(2 * ScriptedChatClient.AgentCallTokens + workflowTokens, finished.Usage.Sum(u => u.TotalTokens ?? 0));
+    }
+
+    [TestMethod]
+    [Timeout(30_000)]
     public async Task Stream_ReportsAFailedStepWithoutItsDetail()
     {
         var chat = new ScriptedChatClient { StepCount = 3, FailOnStep = 2 };
@@ -123,6 +161,9 @@ public sealed class PlannerExecutorTests
         CollectionAssert.AreEqual(
             new[] { PlannerExecutor.Status.Completed, PlannerExecutor.Status.Failed, PlannerExecutor.Status.Pending },
             StepStatuses(last));
+
+        // The planner and the step that finished; the failed step reported nothing.
+        Assert.AreEqual(2 * ScriptedChatClient.WorkflowCallTokens, last.Content.GetProperty("usage").GetProperty("totalTokens").GetInt64());
 
         Assert.IsFalse(Wire(events).Contains(ScriptedChatClient.Secret), "The step's exception text must not reach the wire.");
     }
@@ -320,6 +361,12 @@ sealed class ScriptedChatClient : IChatClient
     public const string CallId = "call-plan";
     public const string FinalAnswer = "final answer";
 
+    /// <summary>What every workflow call (planner, step, synthesizer) reports spending.</summary>
+    public const int WorkflowCallTokens = 15;
+
+    /// <summary>What every call of the calling agent itself reports, so the two can be told apart.</summary>
+    public const int AgentCallTokens = 101;
+
     /// <summary>Text a failing step throws with. It must show up in the log and nowhere on the wire.</summary>
     public const string Secret = "secret-host.internal:5432";
 
@@ -398,11 +445,14 @@ sealed class ScriptedChatClient : IChatClient
 
         if (list.SelectMany(m => m.Contents).OfType<FunctionResultContent>().FirstOrDefault() is { } result)
         {
-            return Text($"Here is what I found: {result.Result}");
+            return Text($"Here is what I found: {result.Result}", agentCall: true);
         }
 
         return new ChatResponse(new ChatMessage(ChatRole.Assistant,
-            [new FunctionCallContent(CallId, PlannerExecutor.ToolName, new Dictionary<string, object?> { ["goal"] = prompt })]));
+            [new FunctionCallContent(CallId, PlannerExecutor.ToolName, new Dictionary<string, object?> { ["goal"] = prompt })]))
+        {
+            Usage = Usage(100, 1),
+        };
     }
 
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
@@ -417,7 +467,13 @@ sealed class ScriptedChatClient : IChatClient
         }
     }
 
-    static ChatResponse Text(string text) => new(new ChatMessage(ChatRole.Assistant, text));
+    static ChatResponse Text(string text, bool agentCall = false) => new(new ChatMessage(ChatRole.Assistant, text))
+    {
+        Usage = agentCall ? Usage(100, 1) : Usage(10, 5),
+    };
+
+    static UsageDetails Usage(long input, long output) =>
+        new() { InputTokenCount = input, OutputTokenCount = output, TotalTokenCount = input + output };
 
     public object? GetService(Type serviceType, object? serviceKey = null) => null;
 
