@@ -29,7 +29,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="ArchitectureCouncil.html" />
-    <EmbeddedResource Include="PlannerExecutor.html" />
+    <EmbeddedResource Include="AgUiChat.html" />
   </ItemGroup>
 
 </Project>

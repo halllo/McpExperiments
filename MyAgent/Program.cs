@@ -81,7 +81,7 @@ app.MapOpenApi();
 app.MapScalarApiReference();
 app.MapDevUI();
 app.MapArchitectureCouncil();
-app.MapAgentAgui();
+app.MapAgUiChat();
 app.MapOpenAIResponses();
 app.MapOpenAIConversations();
 

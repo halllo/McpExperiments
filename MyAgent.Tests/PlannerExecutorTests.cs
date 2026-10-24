@@ -213,7 +213,7 @@ public sealed class PlannerExecutorTests
     {
         await using var app = await StartAsync(new ScriptedChatClient { StepCount = 2 });
 
-        var response = await app.Client.PostAsync("/agents/amazonbedrock/agui", Json(Input(Goal)));
+        var response = await app.Client.PostAsync("/ag-ui-chat/amazonbedrock/agui", Json(Input(Goal)));
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
@@ -228,7 +228,7 @@ public sealed class PlannerExecutorTests
     {
         await using var app = await StartAsync(new ScriptedChatClient());
 
-        var response = await app.Client.PostAsync("/agents/architecture_council/agui", Json(Input(Goal)));
+        var response = await app.Client.PostAsync("/ag-ui-chat/architecture_council/agui", Json(Input(Goal)));
 
         Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -240,7 +240,7 @@ public sealed class PlannerExecutorTests
         await using var app = await StartAsync(new ScriptedChatClient());
 
         // A text/plain POST needs no CORS preflight; refusing it keeps other origins from starting paid runs.
-        var plain = await app.Client.PostAsync("/agents/amazonbedrock/agui", new StringContent("hi", Encoding.UTF8, "text/plain"));
+        var plain = await app.Client.PostAsync("/ag-ui-chat/amazonbedrock/agui", new StringContent("hi", Encoding.UTF8, "text/plain"));
 
         Assert.AreEqual(HttpStatusCode.UnsupportedMediaType, plain.StatusCode);
     }
@@ -251,7 +251,7 @@ public sealed class PlannerExecutorTests
     {
         await using var app = await StartAsync(new ScriptedChatClient());
 
-        var response = await app.Client.GetAsync("/agents");
+        var response = await app.Client.GetAsync("/ag-ui-chat");
 
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
         Assert.IsTrue(response.Headers.TryGetValues("Content-Security-Policy", out var csp));
@@ -323,13 +323,13 @@ public sealed class PlannerExecutorTests
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
         builder.Services.AddAGUIServer();
-        foreach (var name in AgentAguiEndpoints.AgentNames)
+        foreach (var name in AgUiChatEndpoints.AgentNames)
         {
             builder.Services.AddKeyedSingleton<AIAgent>(name, (sp, _) => Agent(chat, sp));
         }
 
         var app = builder.Build();
-        app.MapAgentAgui();
+        app.MapAgUiChat();
         await app.StartAsync();
         return new TestApp(app);
     }

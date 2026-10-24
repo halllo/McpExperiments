@@ -67,9 +67,9 @@
 
   .msg {
     padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--border);
-    background: var(--panel); box-shadow: var(--shadow); white-space: pre-wrap; overflow-wrap: anywhere;
+    background: var(--panel); box-shadow: var(--shadow); overflow-wrap: anywhere;
   }
-  .msg.user { align-self: flex-end; max-width: 85%; background: var(--brand); color: var(--on-brand); border-color: transparent; }
+  .msg.user { align-self: flex-end; max-width: 85%; background: var(--brand); color: var(--on-brand); border-color: transparent; white-space: pre-wrap; }
   .msg .who { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 
   .tool {
@@ -87,7 +87,32 @@
   .plan li .title { font-weight: 600; }
   .plan li .result { margin-top: 4px; font-size: 13px; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
   .plan .tokens { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .plan .final { margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .plan .final { margin-top: 10px; overflow-wrap: anywhere; }
+
+  /* Rendered markdown: assistant messages and the plan's final answer. */
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p, .md ul, .md ol, .md pre, .md blockquote, .md .table-wrap { margin: 0 0 .7em; }
+  .md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { margin: 1em 0 .4em; line-height: 1.3; font-size: 1em; }
+  .md h1 { font-size: 1.35em; }
+  .md h2 { font-size: 1.2em; }
+  .md h3 { font-size: 1.08em; }
+  .md ul, .md ol { padding-left: 1.4em; }
+  .md li + li { margin-top: .2em; }
+  .md li > ul, .md li > ol { margin: .2em 0 0; }
+  .md a { color: var(--brand); }
+  .md code {
+    font: .9em ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; padding: .05em .3em;
+  }
+  .md pre { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; overflow-x: auto; }
+  .md pre code { font-size: 13px; background: none; border: 0; padding: 0; white-space: pre; }
+  .md blockquote { margin-left: 0; padding-left: 12px; border-left: 3px solid var(--border); color: var(--muted); }
+  .md hr { border: 0; border-top: 1px solid var(--border); margin: 1em 0; }
+  .md .table-wrap { overflow-x: auto; }
+  .md table { border-collapse: collapse; font-size: 14px; overflow-wrap: normal; }
+  .md th, .md td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; vertical-align: top; }
+  .md th { background: var(--panel-2); }
 
   .badge { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
   .badge.pending, .badge.planning { color: var(--muted); }
@@ -151,6 +176,28 @@
   let history = [];          // the thread as AG-UI messages: user and assistant text only
   let controller = null;
 
+  // Follow the latest message while the reader is at the bottom; scrolling up to read stops it,
+  // scrolling back down resumes it. The page itself only ever scrolls down, and a clamp from content
+  // that shrinks lands exactly at the bottom, so any other upward scroll is the reader's.
+  let pinned = true, lastY = window.scrollY, followQueued = false;
+  const distanceToBottom = () => document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
+  window.addEventListener("scroll", () => {
+    const y = window.scrollY;
+    if (y < lastY && distanceToBottom() > 2) pinned = false;
+    else if (distanceToBottom() < 80) pinned = true;
+    lastY = y;
+  }, { passive: true });
+
+  // One jump per frame, never smooth: an animation's intermediate positions would read as the reader scrolling up.
+  function follow() {
+    if (!pinned || followQueued) return;
+    followQueued = true;
+    requestAnimationFrame(() => {
+      followQueued = false;
+      if (pinned) window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "auto" });
+    });
+  }
+
   fetch(`${base}/info`)
     .then(response => response.ok ? response.json() : null)
     .then(info => {
@@ -181,6 +228,7 @@
     errorBox.textContent = "";
     const userMessage = { id: newId(), role: "user", content: text };
     history.push(userMessage);
+    pinned = true;
     addBubble("user", text);
 
     const state = { messages: new Map(), tools: new Map(), plans: new Map(), order: [] };
@@ -202,6 +250,7 @@
 
       for await (const event of aguiEvents(response.body)) {
         handle(event, state);
+        follow();
         if (event.type === "RUN_FINISHED" || event.type === "RUN_ERROR") { terminated = true; break; }
       }
 
@@ -235,7 +284,8 @@
         message.text += event.delta ?? "";
         // A message that only parents a tool call never says anything, so its bubble waits for text.
         message.bubble ??= addBubble("assistant", "", message.name ?? agentSelect.value);
-        message.bubble.body.textContent = message.text;
+        // The whole text is re-rendered each time, so a span closes as soon as its closing marker arrives.
+        message.bubble.body.replaceChildren(markdown(message.text));
         break;
       }
       case "TOOL_CALL_START": {
@@ -312,8 +362,8 @@
 
     if (plan.result) {
       const final = document.createElement("div");
-      final.className = "final";
-      final.textContent = plan.result;
+      final.className = "final md";
+      final.appendChild(markdown(plan.result));
       card.appendChild(final);
     }
   }
@@ -346,11 +396,185 @@
       label.textContent = who;
       bubble.appendChild(label);
     }
-    const body = document.createElement("span");
+    const body = document.createElement("div");
+    if (role === "assistant") body.className = "md";
     body.textContent = text;
     bubble.appendChild(body);
     transcript.appendChild(bubble);
+    follow();
     return { bubble, body };
+  }
+
+  // A small markdown renderer for model output: headings, paragraphs, lists, fenced code, quotes,
+  // rules, tables and the common inline spans. It builds DOM nodes and never parses HTML, so
+  // nothing the model writes can become markup; links are kept only for http(s) and mailto.
+  const FENCE = /^ {0,3}(`{3,}|~{3,})\s*([^`\s]*)/;
+  const HEADING = /^ {0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/;
+  const RULE = /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/;
+  const QUOTE = /^ {0,3}>\s?/;
+  const ITEM = /^(\s*)([-*+]|\d{1,9}[.)])\s+(.*)$/;
+  const TABLE_RULE = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
+
+  function make(tag, text) {
+    const node = document.createElement(tag);
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function markdown(source) {
+    const fragment = document.createDocumentFragment();
+    appendBlocks(fragment, source.replace(/\r\n?/g, "\n").split("\n"));
+    return fragment;
+  }
+
+  const startsTable = (lines, i) => lines[i].includes("|") && i + 1 < lines.length && lines[i + 1].includes("|") && TABLE_RULE.test(lines[i + 1]);
+  const startsBlock = (lines, i) => [FENCE, HEADING, RULE, QUOTE, ITEM].some(pattern => pattern.test(lines[i])) || startsTable(lines, i);
+
+  function appendBlocks(parent, lines) {
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      let match;
+      if (!line.trim()) {
+        i++;
+      } else if ((match = FENCE.exec(line))) {
+        // An unclosed fence runs to the end, which is what a half-streamed code block should look like.
+        const body = [];
+        for (i++; i < lines.length && !lines[i].trimStart().startsWith(match[1]); i++) body.push(lines[i]);
+        i++;
+        const pre = make("pre");
+        pre.appendChild(make("code", body.join("\n")));
+        parent.appendChild(pre);
+      } else if ((match = HEADING.exec(line))) {
+        parent.appendChild(inline(make(`h${match[1].length}`), match[2]));
+        i++;
+      } else if (RULE.test(line)) {
+        parent.appendChild(make("hr"));
+        i++;
+      } else if (QUOTE.test(line)) {
+        const body = [];
+        for (; i < lines.length && QUOTE.test(lines[i]); i++) body.push(lines[i].replace(QUOTE, ""));
+        const quote = make("blockquote");
+        appendBlocks(quote, body);
+        parent.appendChild(quote);
+      } else if (startsTable(lines, i)) {
+        i = appendTable(parent, lines, i);
+      } else if (ITEM.test(line)) {
+        i = appendList(parent, lines, i);
+      } else {
+        // Single newlines inside a paragraph stay line breaks, as chat models mean them.
+        const body = [line.trim()];
+        for (i++; i < lines.length && lines[i].trim() && !startsBlock(lines, i); i++) body.push(lines[i].trim());
+        parent.appendChild(inline(make("p"), body.join("\n")));
+      }
+    }
+  }
+
+  function appendList(parent, lines, i) {
+    const first = ITEM.exec(lines[i]);
+    const indent = first[1].length, ordered = /\d/.test(first[2]);
+    const list = make(ordered ? "ol" : "ul");
+    if (ordered && parseInt(first[2], 10) !== 1) list.start = parseInt(first[2], 10);
+
+    let match;
+    while (i < lines.length && (match = ITEM.exec(lines[i])) && Math.abs(match[1].length - indent) < 2 && /\d/.test(match[2]) === ordered) {
+      const contentIndent = match[1].length + match[2].length + 1;
+      const body = [match[3]];
+      let afterBlank = false;
+      for (i++; i < lines.length; i++) {
+        const next = lines[i];
+        const lead = next.length - next.trimStart().length;
+        if (!next.trim()) { afterBlank = true; body.push(""); }
+        else if (lead >= indent + 2) { afterBlank = false; body.push(next.slice(Math.min(lead, contentIndent))); }
+        else if (!afterBlank && !startsBlock(lines, i)) body.push(next.trim());   // a lazily wrapped line
+        else break;
+      }
+
+      // The item's content is blocks of its own, nested lists among them; a lone leading paragraph is unwrapped so tight lists stay tight.
+      const item = make("li");
+      appendBlocks(item, body);
+      if (item.firstChild?.nodeName === "P") item.firstChild.replaceWith(...item.firstChild.childNodes);
+      list.appendChild(item);
+    }
+
+    parent.appendChild(list);
+    return i;
+  }
+
+  function appendTable(parent, lines, i) {
+    const cells = row => row.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(cell => cell.trim());
+    const aligns = cells(lines[i + 1]).map(rule =>
+      rule.startsWith(":") && rule.endsWith(":") ? "center" : rule.endsWith(":") ? "right" : "");
+    const row = (values, tag) => {
+      const tr = make("tr");
+      values.forEach((value, column) => {
+        const cell = inline(make(tag), value);
+        if (aligns[column]) cell.style.textAlign = aligns[column];
+        tr.appendChild(cell);
+      });
+      return tr;
+    };
+
+    const table = make("table");
+    const head = make("thead");
+    head.appendChild(row(cells(lines[i]), "th"));
+    const body = make("tbody");
+    for (i += 2; i < lines.length && lines[i].trim() && lines[i].includes("|"); i++) body.appendChild(row(cells(lines[i]), "td"));
+    table.append(head, body);
+
+    const wrap = make("div");
+    wrap.className = "table-wrap";
+    wrap.appendChild(table);
+    parent.appendChild(wrap);
+    return i;
+  }
+
+  // The earliest match wins; on a tie, the earlier pattern (so ** beats *).
+  const INLINE = [
+    [/\\([\\`*_{}\[\]()#+\-.!|~>])/, match => document.createTextNode(match[1])],
+    [/`([^`\n]+)`/, match => make("code", match[1])],
+    [/\[([^\]\n]+)\]\(([^()\s]+)(?:\s+"[^"]*")?\)/, match => link(match[1], match[2])],
+    [/\*\*(?=\S)([\s\S]*?\S)\*\*/, match => inline(make("strong"), match[1])],
+    [/__(?=\S)([\s\S]*?\S)__(?!\w)/, match => inline(make("strong"), match[1])],
+    [/~~(?=\S)([\s\S]*?\S)~~/, match => inline(make("del"), match[1])],
+    [/\*(?=[^\s*])([^*\n]*?[^\s*])\*/, match => inline(make("em"), match[1])],
+    [/(?<!\w)_(?=[^\s_])([^_\n]*?[^\s_])_(?!\w)/, match => inline(make("em"), match[1])],
+    [/<?(https?:\/\/[^\s<>]*[^\s<>.,:;!?"'()\[\]])>?/, match => link(match[1], match[1], true)],
+  ];
+
+  function inline(parent, text) {
+    while (text) {
+      let best = null;
+      for (const [pattern, build] of INLINE) {
+        const match = pattern.exec(text);
+        if (match && (!best || match.index < best.match.index)) best = { match, build };
+      }
+      if (!best) { appendText(parent, text); break; }
+      appendText(parent, text.slice(0, best.match.index));
+      parent.appendChild(best.build(best.match));
+      text = text.slice(best.match.index + best.match[0].length);
+    }
+    return parent;
+  }
+
+  function appendText(parent, text) {
+    text.split("\n").forEach((part, index) => {
+      if (index) parent.appendChild(make("br"));
+      if (part) parent.appendChild(document.createTextNode(part));
+    });
+  }
+
+  // A bare URL is its own label, which must stay plain text: parsed, it would match as a link again.
+  function link(label, href, plain = false) {
+    const fill = node => (plain ? (node.textContent = label, node) : inline(node, label));
+    let url = null;
+    try { url = new URL(href, window.location.href); } catch { /* not a URL */ }
+    if (!url || !["http:", "https:", "mailto:"].includes(url.protocol)) return fill(make("span"));
+    const anchor = make("a");
+    anchor.href = url.href;
+    anchor.target = "_blank";
+    anchor.rel = "noopener noreferrer";
+    return fill(anchor);
   }
 
   function fail(text) {

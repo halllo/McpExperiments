@@ -4,7 +4,7 @@ namespace MyAgent;
 
 /// <summary>
 /// Serves the chat agents over <see href="https://docs.ag-ui.com">AG-UI</see>: a page at
-/// <c>/agents</c> and the framework's own AG-UI endpoint per agent at <c>/agents/{name}/agui</c>.
+/// <c>/ag-ui-chat</c> and the framework's own AG-UI endpoint per agent at <c>/ag-ui-chat/{name}/agui</c>.
 /// This is the transport that carries a tool's activity — the planner–executor's live plan among
 /// it — which DevUI and the OpenAI Responses endpoints have no event for.
 /// </summary>
@@ -13,7 +13,7 @@ namespace MyAgent;
 /// tools a client advertises and carry each event's <c>rawEvent</c>; they apply no limits beyond
 /// Kestrel's. Requires <c>AddAGUIServer()</c>.
 /// </remarks>
-public static class AgentAguiEndpoints
+public static class AgUiChatEndpoints
 {
     /// <summary>The agents served here, by DI key. Mapped by name, so each resolves on its first request rather than at startup.</summary>
     public static readonly string[] AgentNames = ["amazonbedrock", "openai"];
@@ -25,20 +25,20 @@ public static class AgentAguiEndpoints
 
     static readonly Lazy<string> Page = new(() =>
     {
-        var assembly = typeof(AgentAguiEndpoints).Assembly;
-        var name = $"{assembly.GetName().Name}.PlannerExecutor.html";
+        var assembly = typeof(AgUiChatEndpoints).Assembly;
+        var name = $"{assembly.GetName().Name}.AgUiChat.html";
         using var stream = assembly.GetManifestResourceStream(name) ?? throw new InvalidOperationException($"Embedded resource '{name}' not found.");
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd();
     });
 
-    public static IEndpointRouteBuilder MapAgentAgui(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapAgUiChat(this IEndpointRouteBuilder app)
     {
         // Read the page now, for the same reason the council endpoint does: a missing embedded
         // resource is a build mistake, and Lazy would cache the failure forever.
         _ = Page.Value;
 
-        app.MapGet("/agents", (HttpContext http) =>
+        app.MapGet("/ag-ui-chat", (HttpContext http) =>
             {
                 http.Response.Headers.CacheControl = "no-cache";
                 http.Response.Headers.XContentTypeOptions = "nosniff";
@@ -48,7 +48,7 @@ public static class AgentAguiEndpoints
             })
            .ExcludeFromDescription();
 
-        app.MapGet("/agents/info", () => Results.Ok(new
+        app.MapGet("/ag-ui-chat/info", () => Results.Ok(new
                 {
                     agents = AgentNames,
                     activityType = PlannerExecutor.ActivityType,
@@ -57,7 +57,7 @@ public static class AgentAguiEndpoints
 
         foreach (var name in AgentNames)
         {
-            app.MapAGUIServer(name, $"/agents/{name}/agui")
+            app.MapAGUIServer(name, $"/ag-ui-chat/{name}/agui")
                .ExcludeFromDescription();
         }
 
