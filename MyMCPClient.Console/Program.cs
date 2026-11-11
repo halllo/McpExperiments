@@ -8,7 +8,7 @@ using Microsoft.IdentityModel.JsonWebTokens;
 // await using var mcpClient1 = await McpClient.CreateAsync(new StdioClientTransport(new()
 // {
 // 	Name = "Stdio MCP Server",
-// 	Command = @"D:\McpExperiments\MyMCPServer.Stdio\bin\Debug\net10.0\MyMCPServer.Stdio.exe",
+// 	Command = @"D:\McpExperiments\MyMCPServer.Stdio\bin\Debug\net11.0\MyMCPServer.Stdio.exe",
 // }));
 
 // Local Dejure
