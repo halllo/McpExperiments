@@ -41,6 +41,7 @@ public static class Program
                     awsSecretAccessKey: config["AWSBedrockSecretAccessKey"],
                     region: Amazon.RegionEndpoint.GetBySystemName(config["AWSBedrockRegion"])));
             services.AddSingleton<CodeInterpreter>();
+            services.AddSingleton<WebSearch>();
             services.AddSingleton<IAmazonBedrockAgentCoreControl>(sp =>
                 new AmazonBedrockAgentCoreControlClient(
                     awsAccessKeyId: config["AWSBedrockAccessKeyId"],

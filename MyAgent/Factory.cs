@@ -111,6 +111,7 @@ public static class Factory
                 name: "code_interpreter",
                 description: "Execute Python code using the code interpreter."
             ),
+            WebSearch.CreateTool(),
         ];
 
         return plannerChatClient is null ? tools : [.. tools, PlannerExecutor.CreateTool(plannerChatClient, tools)];

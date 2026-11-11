@@ -38,6 +38,7 @@ builder.Services.AddSingleton<IAmazonBedrockAgentCore>(sp =>
         region: Amazon.RegionEndpoint.GetBySystemName(configuration["AWSBedrockRegion"]));
 });
 builder.Services.AddSingleton<CodeInterpreter>();
+builder.Services.AddSingleton<WebSearch>();
 builder.Services.AddSingleton<IAmazonBedrockAgentCoreControl>(sp =>
 {
     var configuration = sp.GetRequiredService<IConfiguration>();
